@@ -4,7 +4,7 @@
 
 ## フロントエンド
 frontend/chat-test/App.vue   
-frontend/chat-test/components/Chet.vue   
+frontend/chat-test/components/Chat.vue   
 
 ## バックエンド
 backend/main.py   
