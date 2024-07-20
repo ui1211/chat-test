@@ -10,4 +10,4 @@ frontend/chat-test/components/Chat.vue
 backend/main.py   
 
 ## デモ画像
-![](images/2024-07-20-21-49-48.png)
+![](images/Animation.gif)
