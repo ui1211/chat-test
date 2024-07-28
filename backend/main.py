@@ -38,6 +38,8 @@ async def websocket_endpoint(websocket: WebSocket, room: str, client_id: str):
     try:
         while True:
             data = await websocket.receive_text()
+            print(websocket)
+            print(f"re:{data}")
             await manager.broadcast(f"{client_id}: {data}", room)
     except WebSocketDisconnect:
         manager.disconnect(websocket, room)
@@ -47,5 +49,4 @@ async def websocket_endpoint(websocket: WebSocket, room: str, client_id: str):
 @app.get("/create_room")
 async def create_room():
     room_number = str(random.randint(1000, 9999))
-    return {"room_number": room_number}
     return {"room_number": room_number}
