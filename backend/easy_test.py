@@ -36,7 +36,7 @@ manager = ConnectionManager()
 
 @app.get("/create_room")
 async def create_room(user_name: str):
-    room_number = str(random.randint(1000, 9999))
+    room_number = str(1234)  # str(random.randint(1000, 9999))
     rooms[room_number] = [user_name]
     print(rooms)
     return {"room_number": room_number, "user_name": user_name}
@@ -59,8 +59,19 @@ async def join_room(room_number: str, user_name: str):
         return {"exists": False}
 
 
+@app.get("/list_rooms")
+async def list_rooms():
+    return {"rooms": rooms}
+
+
 @app.websocket("/ws/{room_number}/{user_name}")
 async def websocket_endpoint(websocket: WebSocket, room_number: str, user_name: str):
+    if room_number not in rooms:
+        await websocket.accept()
+        await websocket.send_text(json.dumps({"error": "Room not found"}))
+        await websocket.close()
+        return
+
     await manager.connect(websocket, room_number, user_name)
 
     try:
