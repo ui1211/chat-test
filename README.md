@@ -1,6 +1,47 @@
 # chat-test
 
-## FastAPIの通信テスト
+
+# FastAPIの通信テスト
+ルームチャットのフロントエンドとバックエンドの連携テスト
+
+ディレクトリ構成
+```bash
+|- backend
+  |-main.py
+|- frontend
+  |-chat_test
+    |-src
+      |-App.vue
+      |-components
+        |-Chat.vue
+```
+
+## 1.サーバの立ち上げ
+バックエンドのサーバ立ち上げ
+```bash
+# ディレクトリ移動
+cd chat-test\backend
+# 仮想環境の有効化
+.\venv\Scripts\activate
+# サーバの起動
+uvicorn main:app --reload
+```
+![](images/2024-07-28-22-49-03.png)
+
+フロントエンドのサーバ立ち上げ
+```bash
+# ディレクトリ移動
+cd frontend\chat-test
+# サーバの起動
+npm run dev
+```
+![](images/2024-07-28-22-48-50.png)
+
+## 2.動作テスト
+![](images/Animation.gif)
+
+# easy_test
+ルームチャットのバックエンド側の実装テスト
 
 |項目|説明|
 |---|---|
