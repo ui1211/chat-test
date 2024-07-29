@@ -181,3 +181,55 @@ RawContentLength  : 43
 wscat -c "ws://127.0.0.1:8000/ws/1234/Bob"
 ```
 ![](images/2024-07-28-22-26-58.png)
+
+# easy_test2
+
+## 1.バックエンドサーバ起動
+```bash
+cd chat-test\backend
+.\venv\Scripts\activate
+uvicorn easy_test2:app --reload
+```
+![](images/2024-07-29-19-40-52.png)
+
+## 2.ルーム作成
+```bash
+wscat -c "ws://127.0.0.1:8000/ws/create/Alice"
+# room_numberを乱数(4桁)で生成
+```
+![](images/2024-07-29-19-41-18.png)
+
+## 3.ルーム参加
+```bash
+wscat -c "ws://127.0.0.1:8000/ws/join/1234/Bob"
+```
+![](images/2024-07-29-19-42-03.png)
+
+### ルーム参加(失敗)
+```bash
+wscat -c "ws://127.0.0.1:8000/ws/join/9999/Bob"
+```
+![](images/2024-07-29-19-42-38.png)
+
+## 4. 送信
+
+テキストのみの場合メッセージ
+```bash
+text
+```
+![](images/2024-07-29-20-00-29.png)
+
+ルーム状態の確認
+```bash
+{"command" :"view"}
+```
+![](images/2024-07-29-19-59-28.png)
+
+ルームの更新
+```bash
+{"command": "update", "data": {"time": 10}}
+```
+![](images/2024-07-29-20-02-22.png)
+
+ルームの更新(参加者)が実行すると失敗
+![](images/2024-07-29-20-04-13.png)
