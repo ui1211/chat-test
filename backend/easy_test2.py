@@ -124,10 +124,3 @@ async def websocket_test(websocket: WebSocket):
     await websocket.accept()
     await websocket.send_text(json.dumps({"message": "WebSocket connection successful"}))
     await websocket.close()
-
-
-# サーバーの起動
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=8000)

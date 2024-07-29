@@ -184,6 +184,26 @@ wscat -c "ws://127.0.0.1:8000/ws/1234/Bob"
 
 # easy_test2
 
+## コマンドリスト
+- webscoket開始
+```bash
+# 作成ボタン
+ws://127.0.0.1:8000/ws/create/{user_name}
+
+# 参加ボタン
+ws://127.0.0.1:8000/ws/join/{room_number}/{user_name}
+```
+- 通信中コマンド
+```bash
+# ルーム状態確認
+{"command" :"view"}
+
+# ルーム状態更新
+{"command": "update", "data": {"status": 1}} # ルーム状態
+{"command": "update", "date": {"time": 100}} # 議論時間
+```
+
+
 ## 1.バックエンドサーバ起動
 ```bash
 cd chat-test\backend
