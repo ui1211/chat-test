@@ -197,7 +197,7 @@ uvicorn easy_test2:app --reload
 wscat -c "ws://127.0.0.1:8000/ws/create/Alice"
 # room_numberを乱数(4桁)で生成
 ```
-![](images/2024-07-29-19-41-18.png)
+![](images/2024-07-29-20-07-33.png)
 
 ## 3.ルーム参加
 ```bash
@@ -220,12 +220,15 @@ text
 ![](images/2024-07-29-20-00-29.png)
 
 ルーム状態の確認
+初期値
+![](images/2024-07-29-20-06-23.png)
+
 ```bash
 {"command" :"view"}
 ```
 ![](images/2024-07-29-19-59-28.png)
 
-ルームの更新
+ルーム状態の更新
 ```bash
 {"command": "update", "data": {"time": 10}}
 ```
