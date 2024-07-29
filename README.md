@@ -40,6 +40,25 @@ npm run dev
 ## 2.動作テスト
 ![](images/Animation.gif)
 
+# hello_world
+ハローワールドテスト
+
+## 1.バックエンドサーバ立ち上げ
+```bash
+uvicorn hello_world:app --reload
+```
+
+## 2.ハローワールドテスト
+```bash
+wscat -c "ws://127.0.0.1:8000/ws/Alice"
+```
+![](images/2024-07-29-20-34-26.png)
+
+```bash
+{"message": "hello"}
+```
+![](images/2024-07-29-20-34-45.png)
+
 # easy_test
 ルームチャットのバックエンド側の実装テスト
 
@@ -239,8 +258,8 @@ text
 ```
 ![](images/2024-07-29-20-00-29.png)
 
-ルーム状態の確認
-初期値
+ルーム状態の確認   
+- 初期値   
 ![](images/2024-07-29-20-06-23.png)
 
 ```bash
