@@ -1,13 +1,12 @@
 # chat-test
 
-
-# FastAPIの通信テスト
-ルームチャットのフロントエンドとバックエンドの連携テスト
-
 ディレクトリ構成
 ```bash
 |- backend
   |-main.py
+  |-easy_test.py
+  |-easy_test2.py
+  |-hello_world.py
 |- frontend
   |-chat_test
     |-src
@@ -15,6 +14,10 @@
       |-components
         |-Chat.vue
 ```
+
+# FastAPIの通信テスト
+ルームチャットのフロントエンドとバックエンドの連携テスト
+
 
 ## 1.サーバの立ち上げ
 バックエンドのサーバ立ち上げ
