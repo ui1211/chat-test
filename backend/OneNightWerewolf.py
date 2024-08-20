@@ -2,17 +2,38 @@ import asyncio
 import json
 import random
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 
 app = FastAPI()
 
 #  存在するすべての部屋を管理する変数
 rooms = {}
 
+# コード表
+codes = {
+    "S100": "情報不足",
+    "S200": "成功",
+    "S201": "切断に成功",
+    "S300": "-",
+    "S400": "エラー",
+    "S500": "-",
+    "M000": "メッセージなし",
+    "M001": "プレイヤー名を入力してください",
+    "M002": "プレイヤー名、ルームコードの両方を入力してください",
+    "M003": "ルームコードを入力してください",
+    "M004": "ルームコードが誤っています",
+    "M005": "役職の数とプレイ人数を統一してください",
+    "M006": "(プレイヤー名)に投票します。よろしいですか。　はい　いいえ",
+    "M007": "(プレイヤー名)に投票を変更します。よろしいですか。　はい　いいえ",
+    "M008": "(退出したプレイヤー名)がゲームから退出しました",
+    "M009": "(プレイヤー名)に投票します。よろしいですか。　はい　いいえ",
+    "M010": "投票を行ってください(投票を行っていないプレイヤーのみ表示)",
+}
+
 # ルーム情報のテンプレート
 ROOM_TEMPLATE = {
     "STATUS": {
-        "STATUS_CODE": None,  # 状態コード
+        "STATUS_CODE": "",  # 状態コード
         "MESSAGE_CODE": "",  # 画面定義書のメッセージコード
         "MESSAGE_TEXT": "",  # 画面定義書のメッセージテキスト
     },
@@ -56,7 +77,7 @@ class ConnectionManager:
             self.active_connections[ROOM_CODE] = []
         self.active_connections[ROOM_CODE].append((USER_NAME, USER_ID, websocket, role))
         await websocket.accept()
-        await websocket.send_text(json.dumps({"STATUS": {"STATUS_CODE": 200}}))
+        # await websocket.send_text(json.dumps({"STATUS": {"STATUS_CODE": "S200"}}))
 
     def disconnect(self, websocket: WebSocket, ROOM_CODE: int, USER_NAME: str):
         self.active_connections[ROOM_CODE] = [
@@ -72,7 +93,7 @@ class ConnectionManager:
 
     async def close_connections(self, ROOM_CODE: int):
         for USER_NAME, USER_ID, connection, role in self.active_connections.get(ROOM_CODE, []):
-            await connection.send_text(json.dumps({"STATUS": {"STATUS_CODE": 201}}))
+            await connection.send_text(json.dumps({"STATUS": {"STATUS_CODE": "S201"}}))
             await connection.close()
 
 
@@ -95,7 +116,7 @@ async def send_room_update(ROOM_CODE: int):
         for USER_NAME, USER_ID, connection, role in manager.active_connections[ROOM_CODE]:
             try:
                 message = {
-                    "STATUS": {"STATUS_CODE": 200, "MESSAGE_CODE": "M000", "MESSAGE_TEXT": "test"},
+                    "STATUS": {"STATUS_CODE": "S200", "MESSAGE_CODE": "M000", "MESSAGE_TEXT": "test"},
                     "ROOM": rooms[ROOM_CODE]["ROOM"],
                     "USER": {"USER_NAME": USER_NAME, "USER_ID": USER_ID, "ROOM_CREATOR": (role == "creator")},
                 }
@@ -181,13 +202,18 @@ async def handle_update_command(message_data, USER_NAME: str, ROOM_CODE: int):
         await manager.broadcast(json.dumps({"STATUS": {"STATU_CODE": "E999"}}), ROOM_CODE)
 
 
-@app.websocket("/ws/create/{USER_NAME}")
-async def create_room(websocket: WebSocket, USER_NAME: str):
+# @app.websocket("/ws/create/{USER_NAME}")
+@app.websocket("/ws/create/")
+async def create_room(websocket: WebSocket, USER_NAME: str | None = Query(None)):
     ROOM_CODE = 999999  # random.randint(100000, 999999)
     USER_ID = random.randint(200, 999)
+    print(USER_NAME)
 
-    initialize_room(ROOM_CODE, USER_NAME, USER_ID)
+    if USER_NAME is None:
+        await send_error_message(websocket, "S100", "M001", codes["M001"])
+        return
 
+    initialize_room(ROOM_CODE, USER_NAME, USER_ID)  # ルームの初期化
     await manager.connect(websocket, ROOM_CODE, USER_NAME, USER_ID, "creator")
     await send_room_update(ROOM_CODE)
 
@@ -197,8 +223,9 @@ async def create_room(websocket: WebSocket, USER_NAME: str):
         await handle_disconnect(USER_NAME, ROOM_CODE, USER_ID)
 
 
-@app.websocket("/ws/join/{ROOM_CODE}/{USER_NAME}")
-async def join_room(websocket: WebSocket, ROOM_CODE: int, USER_NAME: str):
+# @app.websocket("/ws/join/{ROOM_CODE}/{USER_NAME}")
+@app.websocket("/ws/join/")
+async def join_room(websocket: WebSocket, ROOM_CODE: int = Query(None), USER_NAME: str = Query(None)):
     if not validate_room_and_user(ROOM_CODE, USER_NAME, websocket):
         return
 
@@ -218,21 +245,21 @@ async def join_room(websocket: WebSocket, ROOM_CODE: int, USER_NAME: str):
 
 def validate_room_and_user(ROOM_CODE: int, USER_NAME: str, websocket: WebSocket):
     if ROOM_CODE not in rooms:
-        send_error_message_sync(websocket, 400, "M004", "ルームコードが間違っています")
+        send_error_message_sync(websocket, "S400", "M004", "ルームコードが間違っています")
         return False
 
     if USER_NAME in rooms[ROOM_CODE]["ROOM"]["ROOM_USER"].values():
-        send_error_message_sync(websocket, 400, "M000", "ユーザー名が重複")
+        send_error_message_sync(websocket, "S400", "M000", "ユーザー名が重複")
         return False
 
     return True
 
 
-def send_error_message_sync(websocket: WebSocket, status_code: int, message_code: str, message_text: str):
-    asyncio.create_task(_send_error_message(websocket, status_code, message_code, message_text))
+async def send_error_message_sync(websocket: WebSocket, status_code: str, message_code: str, message_text: str):
+    asyncio.create_task(send_error_message(websocket, status_code, message_code, message_text))
 
 
-async def _send_error_message(websocket: WebSocket, status_code: int, message_code: str, message_text: str):
+async def send_error_message(websocket: WebSocket, status_code: str, message_code: str, message_text: str):
     await websocket.accept()
     await websocket.send_text(
         json.dumps(
@@ -242,7 +269,8 @@ async def _send_error_message(websocket: WebSocket, status_code: int, message_co
                     "MESSAGE_CODE": message_code,
                     "MESSAGET_TEXT": message_text,
                 }
-            }
+            },
+            ensure_ascii=False,
         )
     )
     await websocket.close()
