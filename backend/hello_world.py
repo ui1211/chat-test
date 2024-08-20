@@ -1,6 +1,17 @@
+import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 app = FastAPI()
+
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173/"],  # Vue.jsのURL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class ConnectionManager:
@@ -39,6 +50,5 @@ async def websocket_endpoint(websocket: WebSocket, user_name: str):
 
 # サーバーの起動
 if __name__ == "__main__":
-    import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)
