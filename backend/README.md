@@ -6,12 +6,12 @@ uvicorn OneNightWerewolf:app --reload
 
 ##　ルーム作成
 ```bash
-wscat -c "ws://127.0.0.1:8000/ws/create/Alice"
+wscat -c "ws://127.0.0.1:8000/ws/create/?USER_NAME=Alice"
 ```
 
 ## ルーム参加
 ```bash
-wscat -c "ws://127.0.0.1:8000/ws/join/999999/Bob"
+wscat -c "ws://127.0.0.1:8000/ws/join/?ROOM_CODE=999999&USER_NAME=Bob"
 ```
 
 # 接続後
