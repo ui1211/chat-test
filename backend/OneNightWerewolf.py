@@ -12,37 +12,37 @@ rooms = {}
 # ルーム情報のテンプレート
 ROOM_TEMPLATE = {
     "STATUS": {
-        "STATUS_CODE": None,
-        "MESSAGE_CODE": "",
-        "MESSAGE_TEXT": "",
+        "STATUS_CODE": None,  # 状態コード
+        "MESSAGE_CODE": "",  # 画面定義書のメッセージコード
+        "MESSAGE_TEXT": "",  # 画面定義書のメッセージテキスト
     },
     "ROOM": {
-        "ROOM_CODE": None,
-        "ROOM_NAME": "ワンナイト人狼",
-        "ROOM_DISCUSSION_TIME": 180,
-        "ROOM_STATUS": "R001",
-        "ROOM_USER": [100],  # 墓場プレイヤー
+        "ROOM_CODE": None,  # ルームコード(6桁)
+        "ROOM_NAME": "ワンナイト人狼",  # ルーム名
+        "ROOM_DISCUSSION_TIME": 180,  # 議論時間
+        "ROOM_STATUS": "R001",  # 画面遷移(画面コード)
+        "ROOM_USER": {100: None},  # ユーザIDとユーザ名の対応辞書
         "ROOM_ROLE": [None, None],  # 初期配役
-        "USER_LIST": {},
-        "VOTED_USER_LIST": [],
+        # "USER_LIST": {{100: None}},  # ユーザIDとユーザ名のリスト
+        "VOTED_USER_LIST": [],  # 投票が完了したユーザーのリスト
     },
     "ROLE": {
-        "FORTUNE_TELL": None,
-        "THIEF": None,
-        "ROLE_LIST": {},
+        "FORTUNE_TELL": None,  # 占われたユーザーID
+        "THIEF": None,  # 怪盗されたユーザーID
+        "ROLE_LIST": {},  # ユーザーIDと[初期配役、最終役職]のリスト
     },
     "USER": {
-        "USER_ID": None,
-        "USER_NAME": None,
-        "ROLE_ID": 10,
-        "ROLE_NAME": None,
-        "ROOM_CREATOR": True,
-        "VISIBLE_LIST": [],
-        "USER_VOTE": None,
+        "USER_ID": None,  # ユーザー名
+        "USER_NAME": None,  # ユーザーID
+        "ROLE_ID": None,  # 役職ID
+        "ROLE_NAME": None,  # 役職名
+        "ROOM_CREATOR": False,  # ルーム作成者かどうか
+        "VISIBLE_LIST": [],  # 表示するユーザIDのリスト
+        "USER_VOTE": None,  # 投票先のユーザーID
     },
     "RESULT": {
-        "RESULT_TEXT": "",
-        "VOTE_RESULT": {},
+        "RESULT_TEXT": "",  # 勝利陣営のテキスト
+        "VOTE_RESULT": {},  # 投票後の結果リスト
     },
 }
 
@@ -82,9 +82,9 @@ manager = ConnectionManager()
 def initialize_room(ROOM_CODE: int, USER_NAME: str, USER_ID: int):
     room = json.loads(json.dumps(ROOM_TEMPLATE))  # 深いコピーを作成
     room["ROOM"]["ROOM_CODE"] = ROOM_CODE
-    room["ROOM"]["ROOM_USER"].append(USER_ID)
+    room["ROOM"]["ROOM_USER"][USER_ID] = USER_NAME
     room["ROOM"]["ROOM_ROLE"].append(None)
-    room["ROOM"]["USER_LIST"] = {USER_ID: USER_NAME}
+    # room["ROOM"]["USER_LIST"] = {USER_ID: USER_NAME}
     room["USER"]["USER_ID"] = USER_ID
     room["USER"]["USER_NAME"] = USER_NAME
     rooms[ROOM_CODE] = room
@@ -124,7 +124,7 @@ async def process_omakase_button(USER_NAME: str, ROOM_CODE: int):
 
 
 async def process_start_button(USER_NAME: str, ROOM_CODE: int):
-    users = rooms[ROOM_CODE]["ROOM"]["ROOM_USER"]
+    users = rooms[ROOM_CODE]["ROOM"]["ROOM_USER"].keys()
     roles = rooms[ROOM_CODE]["ROOM"]["ROOM_ROLE"]
 
     if len(roles) < len(users):
@@ -203,8 +203,8 @@ async def join_room(websocket: WebSocket, ROOM_CODE: int, USER_NAME: str):
         return
 
     USER_ID = random.randint(200, 999)
-    rooms[ROOM_CODE]["ROOM"]["ROOM_USER"].append(USER_ID)
-    rooms[ROOM_CODE]["ROOM"]["USER_LIST"][USER_ID] = USER_NAME
+    rooms[ROOM_CODE]["ROOM"]["ROOM_USER"][USER_ID] = USER_NAME
+    # rooms[ROOM_CODE]["ROOM"]["USER_LIST"][USER_ID] = USER_NAME
     rooms[ROOM_CODE]["ROOM"]["ROOM_ROLE"].append(None)
 
     await manager.connect(websocket, ROOM_CODE, USER_NAME, USER_ID, "joiner")
@@ -221,7 +221,7 @@ def validate_room_and_user(ROOM_CODE: int, USER_NAME: str, websocket: WebSocket)
         send_error_message_sync(websocket, 400, "M004", "ルームコードが間違っています")
         return False
 
-    if USER_NAME in rooms[ROOM_CODE]["ROOM"]["USER_LIST"].values():
+    if USER_NAME in rooms[ROOM_CODE]["ROOM"]["ROOM_USER"].values():
         send_error_message_sync(websocket, 400, "M000", "ユーザー名が重複")
         return False
 
@@ -266,26 +266,36 @@ async def handle_websocket_communication(websocket: WebSocket, USER_NAME: str, R
 
         except ValueError:
             print(f"Received data from {USER_NAME} in room {ROOM_CODE}: {data}")
-            await manager.broadcast(data, ROOM_CODE, USER_NAME)
+            # await manager.broadcast(data, ROOM_CODE, USER_NAME) #接続が切れしているユーザに送信しようとしているためエラーになる
 
 
 async def handle_disconnect(USER_NAME: str, ROOM_CODE: int, USER_ID: int):
     """
     Handle user disconnection, remove the user from the room, and send updated room information.
+    If the room creator disconnects, remove the room and disconnect all users.
     """
-    # まず、ユーザーを接続リストから削除
-    manager.disconnect(None, ROOM_CODE, USER_NAME)  # Disconnect the user from the connection manager
+    try:
+        # ユーザーを接続リストから削除
+        manager.disconnect(None, ROOM_CODE, USER_NAME)
 
-    if USER_ID in rooms[ROOM_CODE]["ROOM"]["ROOM_USER"]:
-        rooms[ROOM_CODE]["ROOM"]["ROOM_USER"].remove(USER_ID)
-    if USER_ID in rooms[ROOM_CODE]["ROOM"]["USER_LIST"]:
-        del rooms[ROOM_CODE]["ROOM"]["USER_LIST"][USER_ID]
+        # ユーザーがルームクリエイターかどうかを確認
+        if rooms[ROOM_CODE]["USER"]["USER_ID"] == USER_ID:
+            # クリエイターの場合、ルームを削除し、全員の接続を切断
+            print(f"Room {ROOM_CODE} creator {USER_NAME} disconnected. Deleting room and closing all connections.")
+            await manager.close_connections(ROOM_CODE)
+            del rooms[ROOM_CODE]
+        else:
+            # クリエイター以外の場合、ユーザーをルームから削除し、ルーム状態を更新
+            if USER_ID in rooms[ROOM_CODE]["ROOM"]["ROOM_USER"].keys():
+                del rooms[ROOM_CODE]["ROOM"]["ROOM_USER"][USER_ID]
+                rooms[ROOM_CODE]["ROOM"]["ROOM_ROLE"].pop()
+            # if USER_ID in rooms[ROOM_CODE]["ROOM"]["USER_LIST"]:
+            #     del rooms[ROOM_CODE]["ROOM"]["USER_LIST"][USER_ID]
 
-    # ルームが空になった場合、ルームを削除
-    if len(rooms[ROOM_CODE]["ROOM"]["ROOM_USER"]) == 1 and rooms[ROOM_CODE]["ROOM"]["ROOM_USER"][0] == 100:
-        del rooms[ROOM_CODE]
-    else:
-        # ここでルームの状態を他のクライアントに送信
-        await send_room_update(ROOM_CODE)
+            # ルームが空でない場合は、他のクライアントにルームの状態を送信
+            if len(rooms[ROOM_CODE]["ROOM"]["ROOM_USER"]) > 1 or rooms[ROOM_CODE]["ROOM"]["ROOM_USER"][0] != 100:
+                await send_room_update(ROOM_CODE)
 
-    print(f"Connection closed for user {USER_NAME} (ID: {USER_ID}) in room {ROOM_CODE}")
+        print(f"Connection closed for user {USER_NAME} (ID: {USER_ID}) in room {ROOM_CODE}")
+    except Exception as e:
+        print(f"Error during disconnect: {e}")
