@@ -210,7 +210,7 @@ async def create_room(websocket: WebSocket, USER_NAME: str | None = Query(None))
     print(USER_NAME)
 
     if USER_NAME is None:
-        await send_error_message(websocket, "S100", "M001", codes["M001"])
+        await send_error_message(websocket, "S100", "M001", codes["M001"])  # ユーザ名がない場合
         return
 
     initialize_room(ROOM_CODE, USER_NAME, USER_ID)  # ルームの初期化
