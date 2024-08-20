@@ -204,12 +204,12 @@ async def handle_update_command(message_data, USER_NAME: str, ROOM_CODE: int):
 
 # @app.websocket("/ws/create/{USER_NAME}")
 @app.websocket("/ws/create/")
-async def create_room(websocket: WebSocket, USER_NAME: str | None = Query(None)):
+async def create_room(websocket: WebSocket, USER_NAME: str = Query("")):
     ROOM_CODE = 999999  # random.randint(100000, 999999)
     USER_ID = random.randint(200, 999)
     print(USER_NAME)
 
-    if USER_NAME is None:
+    if len(USER_NAME) == 0:
         await send_error_message(websocket, "S100", "M001", codes["M001"])  # ユーザ名がない場合
         return
 
@@ -225,8 +225,13 @@ async def create_room(websocket: WebSocket, USER_NAME: str | None = Query(None))
 
 # @app.websocket("/ws/join/{ROOM_CODE}/{USER_NAME}")
 @app.websocket("/ws/join/")
-async def join_room(websocket: WebSocket, ROOM_CODE: int = Query(None), USER_NAME: str = Query(None)):
-    if not validate_room_and_user(ROOM_CODE, USER_NAME, websocket):
+async def join_room(websocket: WebSocket, ROOM_CODE: int = Query(0), USER_NAME: str = Query("")):
+
+    if ROOM_CODE == 0 or len(USER_NAME) == 0:
+        await send_error_message(websocket, "S100", "M002", codes["M002"])  # ユーザ名がない場合
+
+    if ROOM_CODE not in rooms:  # ルームが存在しない場合
+        await send_error_message(websocket, "S100", "M004", codes["M004"])  # ルームが存在しない場合
         return
 
     USER_ID = random.randint(200, 999)
@@ -243,16 +248,16 @@ async def join_room(websocket: WebSocket, ROOM_CODE: int = Query(None), USER_NAM
         await handle_disconnect(USER_NAME, ROOM_CODE, USER_ID)
 
 
-def validate_room_and_user(ROOM_CODE: int, USER_NAME: str, websocket: WebSocket):
-    if ROOM_CODE not in rooms:
-        send_error_message_sync(websocket, "S400", "M004", "ルームコードが間違っています")
-        return False
+# def validate_room_and_user(ROOM_CODE: int, USER_NAME: str, websocket: WebSocket):
+#     if ROOM_CODE not in rooms:
+#         send_error_message_sync(websocket, "S400", "M004", "ルームコードが間違っています")
+#         return False
 
-    if USER_NAME in rooms[ROOM_CODE]["ROOM"]["ROOM_USER"].values():
-        send_error_message_sync(websocket, "S400", "M000", "ユーザー名が重複")
-        return False
+#     if USER_NAME in rooms[ROOM_CODE]["ROOM"]["ROOM_USER"].values():
+#         send_error_message_sync(websocket, "S400", "M000", "ユーザー名が重複")
+#         return False
 
-    return True
+#     return True
 
 
 async def send_error_message_sync(websocket: WebSocket, status_code: str, message_code: str, message_text: str):
