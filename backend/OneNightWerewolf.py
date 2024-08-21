@@ -127,6 +127,7 @@ async def send_room_update(ROOM_CODE: int):
 
 async def handle_event(message_data, USER_NAME: str, ROOM_CODE: int):
     event_type = message_data["EVENT"]
+    print(event_type)
 
     if event_type == "OMAKASE_BUTTON":
         await process_omakase_button(USER_NAME, ROOM_CODE)
@@ -140,7 +141,19 @@ async def handle_event(message_data, USER_NAME: str, ROOM_CODE: int):
 
 async def process_omakase_button(USER_NAME: str, ROOM_CODE: int):
     # TODO お任せボタン押下時の処理をここに追加
-    print(f"{USER_NAME} pressed OMAKASE_BUTTON in room {ROOM_CODE}")
+    # 所属人数の判定
+    print(rooms)
+    users = rooms[ROOM_CODE]["ROOM"]["ROOM_USER"]
+    users_num = len(users) - 1
+
+    if users_num == 3:
+        roles = [20, 21, 21, 22, 23]
+    if users_num == 4:
+        roles = [20, 20, 21, 21, 22, 23]
+
+    rooms[ROOM_CODE]["ROOM"]["ROOM_ROLE"] = roles
+
+    # print(f"{USER_NAME} pressed OMAKASE_BUTTON in room {ROOM_CODE}")
     await send_room_update(ROOM_CODE)
 
 
