@@ -161,9 +161,21 @@ async def process_start_button(USER_NAME: str, ROOM_CODE: int):
     users = rooms[ROOM_CODE]["ROOM"]["ROOM_USER"].keys()
     roles = rooms[ROOM_CODE]["ROOM"]["ROOM_ROLE"]
 
-    if len(roles) < len(users):
+    # Noneを除外したrolesリストを作成
+    valid_roles = [role for role in roles if role is not None]
+
+    if len(valid_roles) < len(users):
         await manager.broadcast(
-            json.dumps({"STATUS": {"STATU_CODE": "E001", "STATU_MESSAGE": "Insufficient roles"}}), ROOM_CODE
+            json.dumps(
+                {
+                    "STATUS": {
+                        "STATU_CODE": "S400",
+                        "MESSAGE_CODE": "M005",
+                        "MESSAGE_TEXT": codes["M005"],
+                    }
+                }
+            ),
+            ROOM_CODE,
         )
         return
 
@@ -270,7 +282,7 @@ async def send_error_message(websocket: WebSocket, status_code: str, message_cod
                     "STATUS_CODE": status_code,
                     "MESSAGE_CODE": message_code,
                     "MESSAGET_TEXT": message_text,
-                }
+                },
             },
             ensure_ascii=False,
         )
