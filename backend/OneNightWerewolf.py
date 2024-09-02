@@ -28,6 +28,14 @@ codes = {
     "M008": "(退出したプレイヤー名)がゲームから退出しました",
     "M009": "(プレイヤー名)に投票します。よろしいですか。　はい　いいえ",
     "M010": "投票を行ってください(投票を行っていないプレイヤーのみ表示)",
+    "M011": "プレイヤー名が重複しています",
+}
+
+roles = {
+    "20": "村人",
+    "21": "人狼",
+    "22": "占い師",
+    "23": "怪盗",
 }
 
 # ルーム情報のテンプレート
@@ -111,28 +119,78 @@ def initialize_room(ROOM_CODE: int, USER_NAME: str, USER_ID: int):
     rooms[ROOM_CODE] = room
 
 
+## debug
+initialize_room(ROOM_CODE=100000, USER_NAME="manager", USER_ID=1)
+
+
 async def send_room_update(ROOM_CODE: int):
     if ROOM_CODE in manager.active_connections:
         for USER_NAME, USER_ID, connection, role in manager.active_connections[ROOM_CODE]:
-            try:
-                message = {
-                    "STATUS": {"STATUS_CODE": "S200", "MESSAGE_CODE": "M000", "MESSAGE_TEXT": codes["M000"]},
-                    "ROOM": rooms[ROOM_CODE]["ROOM"],
-                    "USER": {"USER_NAME": USER_NAME, "USER_ID": USER_ID, "ROOM_CREATOR": (role == "creator")},
+            # try:
+            # message = {
+            #     "STATUS": {"STATUS_CODE": "S200", "MESSAGE_CODE": "M000", "MESSAGE_TEXT": codes["M000"]},
+            #     "ROOM": rooms[ROOM_CODE]["ROOM"],
+            #     "USER": {"USER_NAME": USER_NAME, "USER_ID": USER_ID, "ROOM_CREATOR": (role == "creator")},
+            # }
+            # USER
+            data = rooms[ROOM_CODE]
+            USER_ID = str(USER_ID)
+
+            # USER
+            ROLE_LIST = data["ROLE"]["ROLE_LIST"]
+            if len(ROLE_LIST) > 0:
+                print("debug", ROLE_LIST)
+                print("debug", ROLE_LIST[str(USER_ID)]["USER_ROLE1"])
+                USER = {
+                    "USER_NAME": USER_NAME,
+                    "USER_ID": USER_ID,
+                    "ROLE_ID": ROLE_LIST[str(USER_ID)]["USER_ROLE1"],
+                    "ROLE_NAME": roles[str(ROLE_LIST[str(USER_ID)]["USER_ROLE1"])],
+                    "ROOM_CREATOR": (role == "creator"),
+                    "VISIBLE_LIST": [],
+                    "USER_VOTE": None,
                 }
-                await connection.send_text(json.dumps(message, ensure_ascii=False))
-            except (RuntimeError, WebSocketDisconnect):
-                print(f"Connection for {USER_NAME} in room {ROOM_CODE} is already closed or encountered an error.")
+                print("debug", USER)
+            else:
+                USER = {
+                    "USER_NAME": USER_NAME,
+                    "USER_ID": USER_ID,
+                    "ROLE_ID": None,
+                    "ROLE_NAME": None,
+                    "ROOM_CREATOR": (role == "creator"),
+                    "VISIBLE_LIST": [],
+                    "USER_VOTE": None,
+                }
+
+            data.update(
+                {
+                    "STATUS": {"STATUS_CODE": "S200", "MESSAGE_CODE": "M000", "MESSAGE_TEXT": codes["M000"]},
+                    "USER": USER,
+                }
+            )
+            # print("send_room_update", message)
+            message = data
+            await connection.send_text(json.dumps(message, ensure_ascii=False))
+            # except (RuntimeError, WebSocketDisconnect):
+            #     print(f"Connection for {USER_NAME} in room {ROOM_CODE} is already closed or encountered an error.")
 
 
 async def handle_event(message_data, USER_NAME: str, ROOM_CODE: int):
     event_type = message_data["EVENT"]
-    print(event_type)
 
-    if event_type == "OMAKASE_BUTTON":
+    #
+    if event_type == "TEST_BUTTON":
+        print(rooms[ROOM_CODE])
+        print(event_type)
+    elif event_type == "OMAKASE_BUTTON":
         await process_omakase_button(USER_NAME, ROOM_CODE)
     elif event_type == "START_BUTTON":
         await process_start_button(USER_NAME, ROOM_CODE)
+        for i in range(10, 0, -1):
+            print(f"Countdown: {i} seconds remaining...")
+            await asyncio.sleep(1)
+        rooms[ROOM_CODE]["ROOM"]["ROOM_STATUS"] = "R004"  # 役職実行画面に遷移
+        await send_room_update(ROOM_CODE)
     elif event_type == "END_BUTTON":
         await process_end_button(USER_NAME, ROOM_CODE)
     else:
@@ -140,41 +198,35 @@ async def handle_event(message_data, USER_NAME: str, ROOM_CODE: int):
 
 
 async def process_omakase_button(USER_NAME: str, ROOM_CODE: int):
-    # TODO お任せボタン押下時の処理をここに追加
-    # 所属人数の判定
-    print(rooms)
     users = rooms[ROOM_CODE]["ROOM"]["ROOM_USER"]
     users_num = len(users) - 1
+    print("process_omakase_button", users, users_num)
 
     if users_num == 3:
         roles = [20, 21, 21, 22, 23]
     if users_num == 4:
         roles = [20, 20, 21, 21, 22, 23]
+    print("process_omakase_button", roles)
 
     rooms[ROOM_CODE]["ROOM"]["ROOM_ROLE"] = roles
+    print("process_omakase_button", rooms[ROOM_CODE]["ROOM"]["ROOM_ROLE"])
 
     # print(f"{USER_NAME} pressed OMAKASE_BUTTON in room {ROOM_CODE}")
     await send_room_update(ROOM_CODE)
 
 
 async def process_start_button(USER_NAME: str, ROOM_CODE: int):
-    users = rooms[ROOM_CODE]["ROOM"]["ROOM_USER"].keys()
+    users = rooms[ROOM_CODE]["ROOM"]["ROOM_USER"]
     roles = rooms[ROOM_CODE]["ROOM"]["ROOM_ROLE"]
+    print("process_start_button", users, roles)
 
     # Noneを除外したrolesリストを作成
     valid_roles = [role for role in roles if role is not None]
+    print("process_start_button", valid_roles)
 
     if len(valid_roles) < len(users):
         await manager.broadcast(
-            json.dumps(
-                {
-                    "STATUS": {
-                        "STATU_CODE": "S400",
-                        "MESSAGE_CODE": "M005",
-                        "MESSAGE_TEXT": codes["M005"],
-                    }
-                }
-            ),
+            json.dumps({"STATUS": {"STATU_CODE": "S400", "MESSAGE_CODE": "M005", "MESSAGE_TEXT": codes["M005"]}}),
             ROOM_CODE,
         )
         return
@@ -190,13 +242,21 @@ async def process_start_button(USER_NAME: str, ROOM_CODE: int):
 
 def assign_roles_to_users(users, roles):
     assigned_roles, i = {}, 0
-    for user_id in users:
-        if user_id == 100:
+    for user_id in users.keys():
+        if user_id == "100":
             continue
-        assigned_roles[user_id] = [roles[i], roles[i]]
+        assigned_roles[str(user_id)] = {
+            "USER_NAME": users[user_id],
+            "USER_ROLE1": roles[i],
+            "USER_ROLE2": roles[i],
+        }
         i += 1
 
-    assigned_roles[100] = roles[-i:]  # 最後の残りの役職をID 100に割り当て
+    assigned_roles["100"] = {
+        "USER_NAME": None,
+        "USER_ROLE1": roles[i - 1],
+        "USER_ROLE2": roles[i],
+    }  # 最後の残りの役職をID 100に割り当て
     return assigned_roles
 
 
@@ -212,19 +272,28 @@ def selective_recursive_update(orig_dict, update_dict):
             if isinstance(value, dict) and isinstance(orig_dict[key], dict):
                 selective_recursive_update(orig_dict[key], value)
             else:
+                print(f"Updating key {key} from {orig_dict[key]} to {value}")  # デバッグ追加
                 orig_dict[key] = value
 
 
 async def handle_update_command(message_data, USER_NAME: str, ROOM_CODE: int):
-    if rooms[ROOM_CODE]["USER"]["USER_NAME"] == USER_NAME:
-        update_data = message_data.get("UPDATE")
-        if update_data:
-            selective_recursive_update(rooms[ROOM_CODE], update_data)
-            await send_room_update(ROOM_CODE)
-        else:
-            await manager.broadcast(json.dumps({"STATUS": {"STATU_CODE": "E999"}}), ROOM_CODE)
+    update_data = message_data.get("UPDATE")
+    print("Before update:", rooms[ROOM_CODE])  # デバッグ追加
+    if update_data:
+        selective_recursive_update(rooms[ROOM_CODE], update_data)
+        print("After update:", rooms[ROOM_CODE])  # デバッグ追加
+        await send_room_update(ROOM_CODE)
     else:
         await manager.broadcast(json.dumps({"STATUS": {"STATU_CODE": "E999"}}), ROOM_CODE)
+
+
+@app.get("/manage")
+async def manage_room():
+    print(f"room code : {rooms.keys()}")
+    print(f"in room is {len(rooms)}")
+    for ROOM_CODE in rooms.keys():
+        print(ROOM_CODE)
+        print(rooms[ROOM_CODE])
 
 
 # @app.websocket("/ws/create/{USER_NAME}")
@@ -232,7 +301,7 @@ async def handle_update_command(message_data, USER_NAME: str, ROOM_CODE: int):
 async def create_room(websocket: WebSocket, USER_NAME: str = Query("")):
     ROOM_CODE = 999999  # random.randint(100000, 999999)
     USER_ID = random.randint(200, 999)
-    print(USER_NAME)
+    # print(f"log:: ws/create -> {ROOM_CODE}, USER_NAME: {USER_NAME}")
 
     if len(USER_NAME) == 0:
         await send_error_message(websocket, "S100", "M001", codes["M001"])  # ユーザ名がない場合
@@ -250,17 +319,28 @@ async def create_room(websocket: WebSocket, USER_NAME: str = Query("")):
 
 # @app.websocket("/ws/join/{ROOM_CODE}/{USER_NAME}")
 @app.websocket("/ws/join/")
-async def join_room(websocket: WebSocket, ROOM_CODE: int = Query(0), USER_NAME: str = Query("")):
+async def join_room(websocket: WebSocket, ROOM_CODE: str = Query("0"), USER_NAME: str = Query("")):
+    try:
+        ROOM_CODE = int(ROOM_CODE)
+    except:
+        ROOM_CODE = 0
 
-    if ROOM_CODE == 0 or len(USER_NAME) == 0:
-        await send_error_message(websocket, "S100", "M002", codes["M002"])  # ユーザ名がない場合
+    print(f"ROOM_CODE: {ROOM_CODE}, USER_NAME: {USER_NAME}")
+
+    if ROOM_CODE == 0 or len(USER_NAME) == 0:  # ルームコードまたはユーザ名が存在しない場合
+        await send_error_message(websocket, "S100", "M002", codes["M002"])
         return
 
-    if ROOM_CODE not in rooms:  # ルームが存在しない場合
-        await send_error_message(websocket, "S100", "M004", codes["M004"])  # ルームが存在しない場合
+    if ROOM_CODE not in rooms.keys():  # ルームが存在しない場合
+        await send_error_message(websocket, "S100", "M004", codes["M004"])
         return
 
-    USER_ID = random.randint(200, 999)
+    print(rooms[ROOM_CODE]["ROOM"]["ROOM_USER"].values())
+    if USER_NAME in rooms[ROOM_CODE]["ROOM"]["ROOM_USER"].values():
+        await send_error_message(websocket, "S100", "M011", codes["M011"])
+        return
+
+    USER_ID = random.randint(200, 999)  # TODO USER_IDの重複チェック
     rooms[ROOM_CODE]["ROOM"]["ROOM_USER"][USER_ID] = USER_NAME
     rooms[ROOM_CODE]["ROOM"]["ROOM_ROLE"].append(None)
 
