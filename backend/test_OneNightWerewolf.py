@@ -1,15 +1,14 @@
+# %%
 import asyncio
 import json
 import time
+from pprint import pprint
 
 import websockets
 
 # 状態を共有するためのロック
 lock = asyncio.Lock()
 users = []
-
-#
-route = "ROOM_ROLE"
 
 
 async def create_room(user_name):
@@ -20,7 +19,7 @@ async def create_room(user_name):
     async with websockets.connect(uri) as websocket:
         # サーバーからのメッセージを受信
         response = await websocket.recv()
-        print(f"Creator received:\n {response}\n")
+        pprint(f"Creator received:\n {response}\n")
 
         # ユーザーを追加し、ユーザーリストを同期的に更新
         async with lock:
@@ -38,32 +37,43 @@ async def create_room(user_name):
                     event = json.dumps({"UPDATE": {"ROOM": {"ROOM_DISCUSSION_TIME": 999}}})
                     await websocket.send(event)
                     res = await websocket.recv()
-                    print(f"Sent UPDATE:ROOM_DISCUSSION_TIME, received:\n {res}\n")
+                    pprint(f"Sent UPDATE:ROOM_DISCUSSION_TIME, received:\n {res}\n")
 
                     # 更新: ルーム役職役職
                     event = json.dumps({"UPDATE": {"ROOM": {"ROOM_ROLE": [None, None, None, None, None]}}})
                     await websocket.send(event)
                     res = await websocket.recv()
-                    print(f"Sent UPDATE:ROOM_ROLE, received:\n {res}\n")
+                    pprint(f"Sent UPDATE:ROOM_ROLE, received:\n {res}\n")
 
                     # イベント:お任せボタン
                     event = json.dumps({"EVENT": "OMAKASE_BUTTON"})
                     await websocket.send(event)
                     res = await websocket.recv()
-                    print(f"Sent OMAKASE_BUTTON, received:\n {res}\n")
+                    pprint(f"Sent OMAKASE_BUTTON, received:\n {res}\n")
 
                     # イベント:スタートボタン
                     event = json.dumps({"EVENT": "START_BUTTON"})
                     await websocket.send(event)
                     res = await websocket.recv()
-                    print(f"Sent START_BUTTON, received:\n {res}\n")
+                    pprint(f"Sent START_BUTTON, received:\n {res}\n")
+
+                    # event = json.dumps({"EVENT": "END_BUTTON"})
+                    # await websocket.send(event)
+                    # res = await websocket.recv()
+                    # print(f"Sent END_BUTTON, received:\n {res}\n")
+
+                    # 占い師行動
+                    event = json.dumps({"UPDATE": {"ROLE": {"FORTUNE_TELL": 999}}})
+                    await websocket.send(event)
+                    res = await websocket.recv()
+                    pprint(f"Sent URANAI, received:\n {res}\n")
 
                     break
 
         while True:
             await asyncio.sleep(1)
             res = await websocket.recv()
-            print(res, "\n")
+            pprint(res, "\n")
 
 
 async def join_room(room_code, user_name):
@@ -74,13 +84,12 @@ async def join_room(room_code, user_name):
     async with websockets.connect(uri) as websocket:
         # try:
         while True:
-            await asyncio.sleep(0.5)
             # サーバーからのメッセージを受信
             response = json.loads(await websocket.recv())
 
             if len(users) < 3:
                 if response["STATUS"]["STATUS_CODE"] == "S200":
-                    print(f"Joiner {user_name} received:\n {response}\n")
+                    pprint(f"Joiner {user_name} received:\n {response}\n")
                     # ユーザーを追加し、ユーザーリストを同期的に更新
                     async with lock:
                         users.append(user_name)
@@ -88,9 +97,9 @@ async def join_room(room_code, user_name):
 
 async def main():
     # 部屋を作成し、ユーザーを参加させる並列タスクを設定
-    creator_task = asyncio.create_task(create_room("Alice"))
+    creator_task = asyncio.create_task(create_room("fagi"))
 
-    room_code = 999999  # テスト用のダミーのルームコード
+    room_code = 99999  # テスト用のダミーのルームコード
     joiner_task1 = asyncio.create_task(join_room(room_code, "Bob"))
     joiner_task2 = asyncio.create_task(join_room(room_code, "Cyn"))
 
