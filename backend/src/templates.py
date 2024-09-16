@@ -1,10 +1,10 @@
 # ルーム情報のテンプレート
 ROOM_TEMPLATE = {
-    "STATUS": {
-        "STATUS_CODE": "",
-        "MESSAGE_CODE": "",
-        "MESSAGE_TEXT": "",
-    },
+    # "STATUS": {
+    #     "STATUS_CODE": "",
+    #     "MESSAGE_CODE": "",
+    #     "MESSAGE_TEXT": "",
+    # },
     "ROOM": {
         "ROOM_CODE": None,
         "ROOM_NAME": "ワンナイト人狼",
