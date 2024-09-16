@@ -1,6 +1,7 @@
 import asyncio
 import json
 import random
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pprint import pprint
 
@@ -9,7 +10,7 @@ from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 ##
 from src.constants import (
     ALLOWED_COMMANDS,
-    codes,
+    DEBUG,
     countdown_role_confirmation,
     countdown_role_execution,
     debugs,
@@ -20,13 +21,24 @@ from src.data_store import rooms
 from src.manager import ConnectionManager
 from src.templates import ROOM_TEMPLATE, USER_TEMPLATE
 
-DEBUG = True
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """アプリケーション起動時に監視を開始"""
+    task = asyncio.create_task(monitor_room_connections())  # 起動時にタスクを作成
+    yield  # アプリケーションが実行される間にこのタスクが動作
+    task.cancel()  # シャットダウン時にタスクをキャンセル
+
+
+def current_time():
+    return datetime.now().replace(microsecond=0)
+
+
+app = FastAPI(lifespan=lifespan)
 manager = ConnectionManager()
 
-print(str("====") * 10)
-print(datetime.now())
+print(str("=======") * 10)
+print(current_time())
 
 
 def initialize_room(ROOM_CODE: str, USER_NAME: str, USER_ID: str):
@@ -53,63 +65,17 @@ def initialize_room(ROOM_CODE: str, USER_NAME: str, USER_ID: str):
 
 
 async def send_room_update(ROOM_CODE: int, STATUS_CODE: str = "S200", MESSAGE_CODE: str = "M000"):
-    print(datetime.now(), "send_room_update", ROOM_CODE, STATUS_CODE)
+    print(current_time(), "send_room_update", ROOM_CODE, STATUS_CODE)
     """ルームの更新情報を全クライアントに送信"""
     if ROOM_CODE in manager.active_connections:
-        # print(datetime.now(), f"send in ROOM_CODE : {ROOM_CODE}")
-        # pprint(manager.active_connections[ROOM_CODE])
-        # print(len(manager.active_connections[ROOM_CODE]))
-
-        index = 0
-        for USER_NAME, USER_ID, connection, role in manager.active_connections[ROOM_CODE]:
-            # print(datetime.now(), "test", index, USER_NAME, USER_ID, role)
-            index += 1
+        for USER_NAME, USER_ID, connection, _ in manager.active_connections[ROOM_CODE]:
             data = rooms[ROOM_CODE]
             USER_ID = str(USER_ID)
             ROOM_STATUS = data["ROOM"]["ROOM_STATUS"]
 
-            # ルーム状態ごとの処理
-            if ROOM_STATUS == "R001":  # スタート画面
-                # 必要に応じて処理を追加
-                pass
-
-            elif ROOM_STATUS == "R002":  # ルーム作成/参加画面
-                # 必要に応じて処理を追加
-                pass
-
-            elif ROOM_STATUS == "R003":  # 役職確認画面
-                # 役職確認の処理
-                pass
-
-            elif ROOM_STATUS == "R004":  # 役職実行画面
+            if ROOM_STATUS == "R004":  # 役職実行画面に各役職にメッセージ送信
                 role_id = rooms[ROOM_CODE]["USERS"][USER_ID].get("ROLE_ID")
-
-                if role_id == "20":  # 村人
-                    MESSAGE_CODE = "M101"
-                    #
-                elif role_id == "21":  # 人狼
-                    MESSAGE_CODE = "M101"
-                    #
-                elif role_id == "22":  # 占い師
-                    MESSAGE_CODE = "M102"
-                    # 例: 占い師の特殊処理をここで追加
-                elif role_id == "23":  # 怪盗
-                    MESSAGE_CODE = "M103"
-                    # 例: 怪盗の特殊処理をここで追加
-
-            elif ROOM_STATUS == "R005":  # プレイ画面
-                # 必要に応じて処理を追加
-                pass
-
-            elif ROOM_STATUS == "R006":  # 投票画面
-                pass
-
-            elif ROOM_STATUS == "R007":  # 結果画面
-                pass
-
-            else:
-                # 不明な状態の場合はデフォルトメッセージコードを使用
-                MESSAGE_CODE = "M000"
+                MESSAGE_CODE = determine_message_code(role_id)
 
             # データ更新
             data.update(
@@ -123,14 +89,23 @@ async def send_room_update(ROOM_CODE: int, STATUS_CODE: str = "S200", MESSAGE_CO
                 }
             )
 
-            # 接続がまだ開いているか確認してからメッセージを送信
             try:
-                # print(datetime.now(), f"send in ROOM_CODE : {ROOM_CODE}, for USER_NAME: {USER_NAME}")
-                # await asyncio.sleep(1)
                 await connection.send_text(json.dumps(data, ensure_ascii=False))
             except Exception as e:
-                # WebSocket送信でエラーが発生した場合、処理をスキップ
-                print(f"Error sending update to {USER_NAME}: {e}")
+                print(current_time(), f"Error sending update to {USER_NAME}: {e}")
+
+
+def determine_message_code(role_id):
+    """役職に応じたメッセージコードを決定"""
+    if role_id == "20":
+        return "M101"
+    elif role_id == "21":
+        return "M101"
+    elif role_id == "22":
+        return "M102"
+    elif role_id == "23":
+        return "M103"
+    return "M000"
 
 
 async def send_error_message(websocket: WebSocket, status_code: str, message_code: str, is_connected: bool = False):
@@ -164,7 +139,7 @@ async def check_and_update_if_all_roles_finished(ROOM_CODE: int):
     all_finished = all(user_data.get("ROLE_FIN", False) for user_data in room_roles.values())
 
     if all_finished:
-        print("All users have finished their roles.")
+        print(current_time(), "All users have finished their roles.")
         rooms[ROOM_CODE]["ROOM"]["ROOM_STATUS"] = "R005"
         await send_room_update(ROOM_CODE, STATUS_CODE="S234")  # 全員完了後のステータスコードを設定
     else:
@@ -210,6 +185,8 @@ async def process_omakase_button(ROOM_CODE: int):
         role_list = ["20", "20", "20", "21", "21", "22", "23"]
     elif users_num == 6:
         role_list = ["20", "20", "20", "20", "21", "21", "22", "23"]
+    else:
+        role_list = []
 
     rooms[ROOM_CODE]["ROOM"]["ROOM_ROLE"] = role_list
     await send_room_update(ROOM_CODE, STATUS_CODE="S231")
@@ -222,7 +199,7 @@ async def process_start_button(websocket: WebSocket, ROOM_CODE: int):
 
     # 人数チェック(モック時は5人確定)
     valid_roles = [role for role in roles if role is not None]
-    print(datetime.now(), "valid_roles", valid_roles)
+    print(current_time(), "valid_roles", valid_roles)
     if len(valid_roles) < len(users):
         await send_error_message(websocket, "S400", "M005", is_connected=True)
         return
@@ -230,7 +207,7 @@ async def process_start_button(websocket: WebSocket, ROOM_CODE: int):
     roles = [str(i) for i in roles]  # 役職IDを文字列に変換
 
     assigned_roles = assign_roles_to_users(users, roles)
-    print(datetime.now(), "assigned_roles", assigned_roles)
+    print(current_time(), "assigned_roles", assigned_roles)
     rooms[ROOM_CODE]["ROLE"]["ROLE_LIST"] = assigned_roles
     rooms[ROOM_CODE]["ROOM"]["ROOM_STATUS"] = "R003"  # 役職確認画面に遷移
 
@@ -291,51 +268,55 @@ async def determine_victory(ROOM_CODE: int):
     # 投票結果から処刑されたユーザーを取得
     voted_out_user_id = await get_voted_out_user(ROOM_CODE)
 
+    # 投票の集計結果を取得
+    vote_results = await get_vote_results(ROOM_CODE)
+    max_vote_count = max(len(votes) for votes in vote_results.values())
+    max_voted_users = [user_id for user_id, votes in vote_results.items() if len(votes) == max_vote_count]
+
     # 初期化: 陣営とユーザIDリストをRESULTに追加
     room_data["RESULT"]["RESULT_TEXT"] = ""
-    room_data["RESULT"]["VOTE_RESULT"] = {}
+    room_data["RESULT"]["VOTE_RESULT"] = vote_results
     room_data["RESULT"]["USER_ID_LIST"] = []
 
-    # 村人陣営の勝利条件
-    if len(werewolves) == 0:
-        print(f"Room {ROOM_CODE}: 村人陣営の勝利 (人狼がいないため)")
+    # 1. 投票数の一番多い人が人狼陣営の場合 → 村人陣営の勝利
+    if any(user_id in werewolves for user_id in max_voted_users):
+        print(current_time(), f"Room {ROOM_CODE}: 村人陣営の勝利 (人狼が投票で選ばれたため)")
         room_data["ROOM"]["VICTORY"] = "villager"
         room_data["RESULT"]["RESULT_TEXT"] = "村人陣営の勝利"
-        room_data["RESULT"]["USER_ID_LIST"] = villagers  # 村人陣営のユーザーIDをリストに追加
-
-    elif voted_out_user_id in werewolves:
-        print(f"Room {ROOM_CODE}: 村人陣営の勝利 (人狼が処刑された)")
-        room_data["ROOM"]["VICTORY"] = "villager"
-        room_data["RESULT"]["RESULT_TEXT"] = "村人陣営の勝利"
-        room_data["RESULT"]["USER_ID_LIST"] = villagers  # 村人陣営のユーザーIDをリストに追加
-
-    # 人狼陣営の勝利条件
-    elif voted_out_user_id not in werewolves and len(werewolves) > 0:
-        print(f"Room {ROOM_CODE}: 人狼陣営の勝利")
+        room_data["RESULT"]["USER_ID_LIST"] = villagers
+    # 2. 投票数の一番多い人が村人陣営で、村内に人狼が1人以上いる場合 → 人狼陣営の勝利
+    elif len(max_voted_users) == 1 and max_voted_users[0] in villagers and len(werewolves) > 0:
+        print(current_time(), f"Room {ROOM_CODE}: 人狼陣営の勝利 (村人が処刑され、村内に人狼がいるため)")
         room_data["ROOM"]["VICTORY"] = "werewolf"
         room_data["RESULT"]["RESULT_TEXT"] = "人狼陣営の勝利"
-        room_data["RESULT"]["USER_ID_LIST"] = werewolves  # 人狼陣営のユーザーIDをリストに追加
-
-    # # # 特殊陣営（怪盗など）の勝利条件（例）
-    # for user_id, role_data in role_list.items():
-    #     if role_data["USER_ROLE1"] == "23":  # 怪盗
-    #         if check_thief_victory(user_id, room_data):
-    #             room_data["ROOM"]["VICTORY"] = "thief"
-    #             room_data["RESULT"]["RESULT_TEXT"] = "怪盗が勝利しました"
-    #             room_data["RESULT"]["USER_ID_LIST"].append(user_id)  # 怪盗のユーザーIDをリストに追加
-    #             print(f"Room {ROOM_CODE}: 怪盗が勝利しました")
-    #             # return
-
-    # デフォルトで村人陣営を勝利に設定（勝利条件が満たされなかった場合）
-    if "VICTORY" not in room_data["ROOM"]:
-        print(f"Room {ROOM_CODE}: 村人陣営の勝利 (デフォルト)")
+        room_data["RESULT"]["USER_ID_LIST"] = werewolves
+    # 3. 投票数の一番多い人が村人陣営で、村内に人狼がいない場合 → 村人陣営の勝利
+    elif len(max_voted_users) == 1 and max_voted_users[0] in villagers and len(werewolves) == 0:
+        print(current_time(), f"Room {ROOM_CODE}: 村人陣営の勝利 (人狼がいないため)")
         room_data["ROOM"]["VICTORY"] = "villager"
         room_data["RESULT"]["RESULT_TEXT"] = "村人陣営の勝利"
-        room_data["RESULT"]["USER_ID_LIST"] = villagers  # 村人陣営のユーザーIDをリストに追加
+        room_data["RESULT"]["USER_ID_LIST"] = villagers
+    # 4. 全員が一票ずつで、人狼陣営がいない場合 → 平和村
+    elif len(max_voted_users) == len(role_list) and len(werewolves) == 0:
+        print(current_time(), f"Room {ROOM_CODE}: 平和村 (全員が一票ずつかつ人狼がいない)")
+        room_data["ROOM"]["VICTORY"] = "peace"
+        room_data["RESULT"]["RESULT_TEXT"] = "平和村"
+        room_data["RESULT"]["USER_ID_LIST"] = list(role_list.keys())  # 全員が平和村の一員
+    # 5. 全員が一票ずつで、人狼陣営がいる場合 → 人狼陣営の勝利
+    elif len(max_voted_users) == len(role_list) and len(werewolves) > 0:
+        print(current_time(), f"Room {ROOM_CODE}: 人狼陣営の勝利 (全員が一票ずつかつ人狼がいるため)")
+        room_data["ROOM"]["VICTORY"] = "werewolf"
+        room_data["RESULT"]["RESULT_TEXT"] = "人狼陣営の勝利"
+        room_data["RESULT"]["USER_ID_LIST"] = werewolves
+    else:
+        # 予期しない状況に対するデフォルトの村人陣営勝利
+        print(current_time(), f"Room {ROOM_CODE}: 村人陣営の勝利 (デフォルト)")
+        room_data["ROOM"]["VICTORY"] = "villager"
+        room_data["RESULT"]["RESULT_TEXT"] = "村人陣営の勝利"
+        room_data["RESULT"]["USER_ID_LIST"] = villagers
 
     # 投票結果をVOTE_RESULTに記載
-    room_data["RESULT"]["VOTE_RESULT"] = await get_vote_results(ROOM_CODE)
-    print(f"Vote results: {room_data['RESULT']['VOTE_RESULT']}")
+    print(current_time(), f"Vote results: {vote_results}")
 
     await send_room_update(ROOM_CODE, STATUS_CODE="S261")
 
@@ -356,7 +337,7 @@ async def get_voted_out_user(ROOM_CODE: int):
     # 最も多く投票されたユーザーを取得
     if vote_counts:
         voted_out_user_id = max(vote_counts, key=vote_counts.get)
-        print(f"User {voted_out_user_id} has been voted out.")
+        print(current_time(), f"User {voted_out_user_id} has been voted out.")
         return voted_out_user_id
     return None
 
@@ -387,8 +368,6 @@ def check_thief_victory(user_id: int, room_data: dict) -> bool:
 
 
 # ==========ROLE==========
-
-
 def assign_roles_to_users(users, roles):
     """ユーザーに役職を割り当て"""
     assigned_roles, i = {}, 0
@@ -398,7 +377,7 @@ def assign_roles_to_users(users, roles):
     else:
         roles = random.sample(roles, len(roles))
         #
-        print(datetime.now(), "assign_roles_to_users", roles)
+        print(current_time(), "assign_roles_to_users", roles)
         for user_id, user_name in users.items():
             if False:
                 pass
@@ -438,7 +417,7 @@ async def auto_process_role_action(ROOM_CODE: int):
     user_ids = list(room_roles.keys())
 
     for user_id, role_data in room_roles.items():
-        print(datetime.now(), "auto_process_role_action", user_id, role_data, role_data.get("ROLE_FIN"))
+        print(current_time(), "auto_process_role_action", user_id, role_data, role_data.get("ROLE_FIN"))
         role_id = role_data["USER_ROLE1"]
         # print(role_id)
 
@@ -466,7 +445,7 @@ async def role_action_process(role_data: dict, ROOM_CODE: int, USER_ID: int):
 
 ## 占い師
 async def execute_fortune_teller(ROOM_CODE: int, USER_ID: int, target_user_id: int):
-    print(datetime.now(), "execute_fortune_teller", ROOM_CODE, USER_ID, target_user_id)
+    print(current_time(), "execute_fortune_teller", ROOM_CODE, USER_ID, target_user_id)
     room = rooms[ROOM_CODE]
     target_user_id = str(target_user_id)
     if target_user_id in room["ROLE"]["ROLE_LIST"]:
@@ -476,16 +455,16 @@ async def execute_fortune_teller(ROOM_CODE: int, USER_ID: int, target_user_id: i
         room["ROLE"]["ROLE_LIST"][USER_ID]["ROLE_FIN"] = True
         #
         room["USERS"][USER_ID]["VISIBLE_LIST"].append(target_user_id)
-        print(f"占い師はユーザーID {target_user_id} の役職 {target_role_name} を確認しました。")
+        print(current_time(), f"占い師はユーザーID {target_user_id} の役職 {target_role_name} を確認しました。")
         await send_room_update(ROOM_CODE, STATUS_CODE="S243")
     else:
-        print(f"ユーザーID {target_user_id} はルームに存在しません。")
+        print(current_time(), f"ユーザーID {target_user_id} はルームに存在しません。")
         # room["RESULT"]["RESULT_TEXT"] = f"ユーザーID {target_user_id} は存在しません。"
 
 
 ## 怪盗
 async def execute_thief(ROOM_CODE: int, USER_ID: int, target_user_id: int):
-    print(datetime.now(), "execute_thief", ROOM_CODE, USER_ID, target_user_id)
+    print(current_time(), "execute_thief", ROOM_CODE, USER_ID, target_user_id)
     room = rooms[ROOM_CODE]
     USER_ID = str(USER_ID)  # USER_IDを文字列に変換
     target_user_id = str(target_user_id)  # target_user_idを文字列に変換
@@ -510,12 +489,10 @@ async def execute_thief(ROOM_CODE: int, USER_ID: int, target_user_id: int):
         # 状態の更新をクライアントに通知
         await send_room_update(ROOM_CODE, STATUS_CODE="S244")
     else:
-        print(f"ユーザーID {USER_ID} またはターゲットユーザーID {target_user_id} が存在しません。")
+        print(current_time(), f"ユーザーID {USER_ID} またはターゲットユーザーID {target_user_id} が存在しません。")
 
 
 # ==========UPDATE==========
-
-
 def selective_recursive_update(orig_dict, update_dict):
     """辞書を再帰的に更新し、変更があった場合 True とステータスコードを返す"""
     updated = False
@@ -523,7 +500,7 @@ def selective_recursive_update(orig_dict, update_dict):
 
     for key, value in update_dict.items():
         if key in ALLOWED_COMMANDS:
-            print(datetime.now(), "selective_recursive_update", key, value)
+            print(current_time(), "selective_recursive_update", key, value)
             if isinstance(value, dict) and isinstance(orig_dict.get(key), dict):
                 # 再帰的にネストされた辞書も更新する
                 recursive_update, recursive_status = selective_recursive_update(orig_dict[key], value)
@@ -537,7 +514,7 @@ def selective_recursive_update(orig_dict, update_dict):
                     updated = True
                     status_code = ALLOWED_COMMANDS[key]  # 対応するステータスコードを設定
         else:
-            print(datetime.now(), "Ignoring unallowed key:", key)
+            print(current_time(), "Ignoring unallowed key:", key)
 
     return updated, status_code
 
@@ -545,7 +522,7 @@ def selective_recursive_update(orig_dict, update_dict):
 async def handle_update_command(message_data, ROOM_CODE: int, USER_ID: int):
     """更新コマンドの処理と通知"""
     update_data = message_data.get("UPDATE")
-    print(datetime.now(), update_data)
+    print(current_time(), update_data)
     if update_data:
         if "ROLE" in update_data:
             await role_action_process(update_data["ROLE"], ROOM_CODE, USER_ID)
@@ -557,10 +534,6 @@ async def handle_update_command(message_data, ROOM_CODE: int, USER_ID: int):
                 await send_room_update(ROOM_CODE, STATUS_CODE=status_code)
     else:
         await manager.broadcast(json.dumps({"STATUS": {"STATUS_CODE": "E999"}}), ROOM_CODE)
-
-
-async def handle_vote():
-    pass
 
 
 async def handle_websocket_communication(websocket: WebSocket, USER_NAME: str, ROOM_CODE: int, USER_ID: int):
@@ -578,10 +551,10 @@ async def handle_websocket_communication(websocket: WebSocket, USER_NAME: str, R
             elif "VOTE" in message_data:
                 await handle_vote_command(message_data, ROOM_CODE, USER_ID)
             else:
-                print(f"Received invalid data: {data}")
+                print(current_time(), f"Received invalid data: {data}")
 
         except ValueError:
-            print(f"Error processing message from {USER_NAME} in room {ROOM_CODE}: {data}")
+            print(current_time(), f"Error processing message from {USER_NAME} in room {ROOM_CODE}: {data}")
 
 
 # ==========VOTE==========
@@ -604,16 +577,16 @@ async def handle_vote_command(message_data: dict, ROOM_CODE: int, USER_ID: int):
         room_data["ROOM"]["ROOM_STATUS"] = "R006"
         await send_room_update(ROOM_CODE, STATUS_CODE="S251")
 
-        print(f"User {USER_ID} voted for {vote_target_id}")
+        print(current_time(), f"User {USER_ID} voted for {vote_target_id}")
 
         # 全員の投票が完了したかを確認
         all_users_voted = check_if_all_users_voted(ROOM_CODE)
         if all_users_voted:
-            print(f"All users in room {ROOM_CODE} have voted.")
+            print(current_time(), f"All users in room {ROOM_CODE} have voted.")
             await proceed_to_next_phase(ROOM_CODE)
             await determine_victory(ROOM_CODE)
         else:
-            print(f"Waiting for more users to vote in room {ROOM_CODE}.")
+            print(current_time(), f"Waiting for more users to vote in room {ROOM_CODE}.")
     else:
         print(f"Invalid vote data: {message_data}")
 
@@ -631,7 +604,7 @@ def check_if_all_users_voted(ROOM_CODE: int) -> bool:
 async def proceed_to_next_phase(ROOM_CODE: int):
     """全員の投票が完了したら次のフェーズに進む処理"""
     # 投票結果の集計などを行うフェーズ
-    print(f"Proceeding to the next phase in room {ROOM_CODE}...")
+    print(current_time(), f"Proceeding to the next phase in room {ROOM_CODE}...")
 
     # 例: 結果発表フェーズへ移行
     rooms[ROOM_CODE]["ROOM"]["ROOM_STATUS"] = "R007"  # 結果発表画面
@@ -639,23 +612,38 @@ async def proceed_to_next_phase(ROOM_CODE: int):
 
 
 async def handle_disconnect(USER_NAME: str, ROOM_CODE: int, USER_ID: int):
-    """ユーザー切断処理"""
+    """ユーザー切断処理 - ルームの作成者が切断された場合、ルームと全ユーザーを削除"""
     try:
-        manager.disconnect(ROOM_CODE, USER_NAME)
-        if rooms[ROOM_CODE]["USER"]["USER_ID"] == USER_ID:
+        # ユーザーの接続を削除
+        await manager.disconnect(ROOM_CODE, USER_NAME)
+
+        # ルームに作成者がいて、そのユーザーIDが切断された場合
+        if rooms[ROOM_CODE]["USERS"][USER_ID]["ROOM_CREATOR"]:
+            # ルームのすべての接続を閉じ、ルームを削除
             await manager.close_connections(ROOM_CODE)
             del rooms[ROOM_CODE]
+            print(f"Room {ROOM_CODE} has been deleted because the creator {USER_NAME} disconnected.")
         else:
+            # 切断されたユーザーがルーム内にいた場合、そのユーザーを削除
             if USER_ID in rooms[ROOM_CODE]["ROOM"]["ROOM_USER"]:
                 del rooms[ROOM_CODE]["ROOM"]["ROOM_USER"][USER_ID]
                 rooms[ROOM_CODE]["ROOM"]["ROOM_ROLE"].pop()
 
+            # まだ他のユーザーが残っている場合は更新を送信
             if len(rooms[ROOM_CODE]["ROOM"]["ROOM_USER"]) > 1 or 100 not in rooms[ROOM_CODE]["ROOM"]["ROOM_USER"]:
                 await send_room_update(ROOM_CODE)
 
         print(f"Connection closed for user {USER_NAME} (ID: {USER_ID}) in room {ROOM_CODE}")
     except Exception as e:
         print(f"Error during disconnect: {e}")
+
+
+def generate_unique_user_id(room_users):
+    """既存のユーザIDと重複しないIDを生成"""
+    while True:
+        new_user_id = str(random.randint(200, 999))
+        if new_user_id not in room_users:
+            return new_user_id
 
 
 # ==========CONNECTION==========
@@ -699,7 +687,7 @@ async def create_room(websocket: WebSocket, USER_NAME: str = Query("")):
 async def join_room(websocket: WebSocket, ROOM_CODE: str = Query("0"), USER_NAME: str = Query("")):
     """ルーム参加のWebSocketエンドポイント"""
 
-    print(datetime.now(), "join", ROOM_CODE, USER_NAME)
+    print(current_time(), "join", ROOM_CODE, USER_NAME)
 
     if ROOM_CODE == "" or USER_NAME == "":
         await send_error_message(websocket, "S100", "M002")
@@ -710,7 +698,7 @@ async def join_room(websocket: WebSocket, ROOM_CODE: str = Query("0"), USER_NAME
         return
 
     if USER_NAME in rooms[ROOM_CODE]["ROOM"]["ROOM_USER"].values():  # ユーザ名が存在する場合エラーを返す
-        print(datetime.now(), "join (but exists user name)", USER_NAME)
+        print(current_time(), "join (but exists user name)", USER_NAME)
         await send_error_message(websocket, "S100", "M011")
         return
 
@@ -742,9 +730,42 @@ async def join_room(websocket: WebSocket, ROOM_CODE: str = Query("0"), USER_NAME
         await handle_disconnect(USER_NAME, ROOM_CODE, USER_ID)
 
 
-def generate_unique_user_id(room_users):
-    """既存のユーザIDと重複しないIDを生成"""
+# ==========接続状態の監視===========
+
+
+async def monitor_room_connections():
+    """ルームの接続状態を監視し、作成者が切断された場合にルーム全体を削除"""
     while True:
-        new_user_id = str(random.randint(200, 999))
-        if new_user_id not in room_users:
-            return new_user_id
+        for room_code in list(rooms.keys()):
+            # ルームに作成者が存在するか確認
+            creator_id = None
+            for user_id, user_data in rooms[room_code]["USERS"].items():
+                if user_data.get("ROOM_CREATOR", False):
+                    creator_id = user_id
+                    break
+
+            # 作成者が接続していない場合、ルームを削除する
+            if creator_id and not is_user_connected(room_code, creator_id):
+                print(current_time(), f"Creator of room {room_code} has disconnected. Closing the room.")
+                await close_room(room_code)
+            else:
+                # ルームの状態を出力
+                print(current_time(), f"Room {room_code} is active. Creator (ID: {creator_id}) is still connected.")
+
+        print(current_time(), "***Monitoring rooms***")  # 監視が行われていることを通知
+        await asyncio.sleep(10)
+
+
+def is_user_connected(room_code: int, user_id: int) -> bool:
+    """指定したユーザーがルームに接続しているかどうかを確認"""
+    return any(user_id == user[1] for user in manager.active_connections.get(room_code, []))
+
+
+async def close_room(room_code: int):
+    """ルームを削除し、すべての接続を閉じる"""
+    if room_code in rooms:
+        # 全ユーザーの接続を閉じる
+        await manager.close_connections(room_code)
+        # ルームデータを削除
+        del rooms[room_code]
+        print(f"Room {room_code} and all connections have been closed.")

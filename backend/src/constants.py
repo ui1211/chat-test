@@ -1,13 +1,8 @@
+DEBUG = True
+
 countdown_role_confirmation = 0  # 役職確認画面待機秒数
 countdown_role_execution = 0  # 役職実行画面待機秒数
 
-# メッセージリスト
-codes = {
-    "S100": "情報不足",
-    "S200": "成功",
-    "S201": "切断に成功",
-    "S400": "エラー",
-}
 
 messages = {
     "M000": "メッセージなし",

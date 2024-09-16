@@ -88,7 +88,7 @@ joiner_commands_by_user = {
             "cmd": {"VOTE": {"USER_ID": 201}},
             "res": "S251",
             "send": False,
-            "display": True,
+            "display": False,
         },
     },
     "198": {
@@ -96,7 +96,7 @@ joiner_commands_by_user = {
             "cmd": {"VOTE": {"USER_ID": 202}},
             "res": "S251",
             "send": False,
-            "display": True,
+            "display": False,
         },
     },
     "mira": {
@@ -104,13 +104,13 @@ joiner_commands_by_user = {
             "cmd": {"UPDATE": {"ROLE": {"THIEF": 201}}},
             "res": "S244",
             "send": False,
-            "display": True,
+            "display": False,
         },
         "cmd1": {  # 投票
             "cmd": {"VOTE": {"USER_ID": 203}},
             "res": "S251",
             "send": False,
-            "display": True,
+            "display": False,
         },
     },
     "cookie": {
@@ -118,7 +118,7 @@ joiner_commands_by_user = {
             "cmd": {"VOTE": {"USER_ID": 201}},
             "res": "S251",
             "send": False,
-            "display": True,
+            "display": False,
         },
     },
 }

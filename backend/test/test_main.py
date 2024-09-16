@@ -6,18 +6,26 @@ from datetime import datetime
 import websockets
 from test_command import creater_commands, joiner_commands_by_user
 
-print(str("===") * 10)
-print(datetime.now())
+
+def current_time():
+    return datetime.now().replace(microsecond=0)
+
+
+simple = True  # 出力結果をSTATUSのみ
+
+
+print(str("=======") * 10)
+print(current_time())
 
 # await asyncio.sleep(1)
 users, users_num, send_flag, receive_flag = [], 5, True, True
 
 
 def ppprint(header, response):
-    print(datetime.now(), header, "\n", json.dumps(json.loads(response), indent=4, ensure_ascii=False), "\n")
+    print(current_time(), header, "\n", json.dumps(json.loads(response), indent=4, ensure_ascii=False), "\n")
 
 
-async def execute_commands(websocket, commands):
+async def execute_commands(websocket, commands, user_name):
     """共通のコマンド処理"""
     while True:
         response = await websocket.recv()
@@ -40,8 +48,13 @@ async def execute_commands(websocket, commands):
 
             # イベント表示(一度だけ表示)
             if com["display"] == False:
+                if simple:
+                    res = json.dumps(response_json["STATUS"])
+                else:
+                    res = response
+
                 if response_status == com["res"]:
-                    ppprint(f'{com["res"]}, {com["cmd"]}', response)
+                    ppprint(f'{user_name}, {com["res"]}, {com["cmd"]}', res)
                     com["display"] = True
 
 
@@ -52,11 +65,11 @@ async def create_room(user_name):
         users.append(user_name)
 
     async with websockets.connect(uri) as websocket:
-        print(f"Connected to {uri} as {user_name}\n")
+        print(f"Connected to {uri}")
         try:
             if len(users) == users_num:
                 # creater 用のコマンドを実行
-                await execute_commands(websocket, creater_commands)
+                await execute_commands(websocket, creater_commands, user_name)
         except websockets.ConnectionClosed:
             print("Connection closed by server")
         except Exception as e:
@@ -70,12 +83,12 @@ async def join_room(room_code, user_name):
         users.append(user_name)
 
     async with websockets.connect(uri) as websocket:
-        print(f"Connected to {uri} as {user_name}")
+        print(f"Connected to {uri}")
         try:
             # user_nameごとのコマンドを実行
             if user_name in joiner_commands_by_user:
                 user_commands = joiner_commands_by_user[user_name]
-                await execute_commands(websocket, user_commands)
+                await execute_commands(websocket, user_commands, user_name)
         except websockets.ConnectionClosed:
             print("Connection closed by server")
         except Exception as e:
@@ -84,8 +97,8 @@ async def join_room(room_code, user_name):
 
 # ==========main==========
 async def main_check():
-    print(str("******") * 10)
-    print(datetime.now(), "main_check")
+
+    print(current_time(), "main_check")
 
     room_code = 99999
 
