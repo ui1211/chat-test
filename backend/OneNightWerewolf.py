@@ -635,7 +635,7 @@ async def handle_disconnect(USER_NAME: str, ROOM_CODE: int, USER_ID: int):
 
         print(f"Connection closed for user {USER_NAME} (ID: {USER_ID}) in room {ROOM_CODE}")
     except Exception as e:
-        print(f"Error during disconnect: {e}")
+        print(current_time(), f"Error during disconnect: {e}")
 
 
 def generate_unique_user_id(room_users):
@@ -649,13 +649,23 @@ def generate_unique_user_id(room_users):
 # ==========CONNECTION==========
 
 
+def ppprint(header, response):
+    print(current_time(), header, "\n", json.dumps(json.loads(response), indent=4, ensure_ascii=False), "\n")
+
+
 @app.get("/manage")
 async def manage_room():
     """ルームの管理情報を出力"""
+    print(str("*****") * 15)
+    print(current_time(), "manage")
     print(f"room code : {rooms.keys()}")
     print(f"in room is {len(rooms)}")
     for ROOM_CODE in rooms.keys():
-        print(ROOM_CODE, rooms[ROOM_CODE])
+        print(str("-----") * 10)
+        ppprint(ROOM_CODE, json.dumps(rooms[ROOM_CODE], ensure_ascii=False))
+        print(str("-----") * 10)
+        # print(ROOM_CODE, rooms[ROOM_CODE])
+    print(str("*****") * 15)
 
 
 @app.websocket("/ws/create/")
@@ -737,35 +747,54 @@ async def monitor_room_connections():
     """ルームの接続状態を監視し、作成者が切断された場合にルーム全体を削除"""
     while True:
         for room_code in list(rooms.keys()):
-            # ルームに作成者が存在するか確認
             creator_id = None
+            # ルーム作成者を特定
             for user_id, user_data in rooms[room_code]["USERS"].items():
                 if user_data.get("ROOM_CREATOR", False):
                     creator_id = user_id
                     break
 
-            # 作成者が接続していない場合、ルームを削除する
-            if creator_id and not is_user_connected(room_code, creator_id):
-                print(current_time(), f"Creator of room {room_code} has disconnected. Closing the room.")
-                await close_room(room_code)
+            if creator_id:
+                # send()で作成者の接続を確認
+                if not await check_user_connection(room_code, creator_id):
+                    print(current_time(), f"Creator of room {room_code} has disconnected. Closing the room.")
+                    await close_room(room_code)
+                else:
+                    print(current_time(), f"Room {room_code} is active. Creator (ID: {creator_id}) is still connected.")
             else:
-                # ルームの状態を出力
-                print(current_time(), f"Room {room_code} is active. Creator (ID: {creator_id}) is still connected.")
+                print(current_time(), f"No creator found for room {room_code}")
 
-        print(current_time(), "***Monitoring rooms***")  # 監視が行われていることを通知
+        print(current_time(), "***Monitoring rooms***")
         await asyncio.sleep(10)
 
 
-def is_user_connected(room_code: int, user_id: int) -> bool:
-    """指定したユーザーがルームに接続しているかどうかを確認"""
-    return any(user_id == user[1] for user in manager.active_connections.get(room_code, []))
+async def check_user_connection(room_code: int, user_id: int) -> bool:
+    """ユーザーが接続しているかを確認（send()でテスト）"""
+    if room_code in manager.active_connections:
+        for _, connection_user_id, websocket, _ in manager.active_connections[room_code]:
+            if connection_user_id == user_id:
+                try:
+                    # Ping的なメッセージを送信し、接続が有効か確認
+                    await websocket.send_text("ping")
+                    return True
+                except Exception as e:
+                    print(current_time(), f"Error sending message to user {user_id} in room {room_code}: {e}")
+                    return False
+    return False
 
 
 async def close_room(room_code: int):
     """ルームを削除し、すべての接続を閉じる"""
     if room_code in rooms:
         # 全ユーザーの接続を閉じる
-        await manager.close_connections(room_code)
+        if room_code in manager.active_connections:
+            for user_name, user_id, websocket, _ in manager.active_connections[room_code]:
+                try:
+                    await websocket.close()
+                    print(current_time(), f"Closed connection for user {user_name} (ID: {user_id}) in room {room_code}")
+                except Exception as e:
+                    print(current_time(), f"Error closing connection for user {user_name} in room {room_code}: {e}")
+
         # ルームデータを削除
         del rooms[room_code]
-        print(f"Room {room_code} and all connections have been closed.")
+        print(current_time(), f"Room {room_code} and all connections have been closed.")

@@ -4,15 +4,19 @@
 uvicorn OneNightWerewolf:app --reload
 ```
 
+```
+curl "http://127.0.0.1:8000/manage/"
+```
+
 ##　ルーム作成
 ```bash
-wscat -c "ws://127.0.0.1:8000/ws/create/?USER_NAME=Alice"
+wscat -c "ws://127.0.0.1:8000/ws/create/?USER_NAME=fagi"
 ```
 
 ## ルーム参加
 ```bash
-wscat -c "ws://127.0.0.1:8000/ws/join/?ROOM_CODE=999999&USER_NAME=Bob"
-wscat -c "ws://127.0.0.1:8000/ws/join/?ROOM_CODE=999999&USER_NAME=Cylan"
+wscat -c "ws://127.0.0.1:8000/ws/join/?ROOM_CODE=99999&USER_NAME=ui"
+wscat -c "ws://127.0.0.1:8000/ws/join/?ROOM_CODE=99999&USER_NAME=198"
 ```
 
 # 接続後
