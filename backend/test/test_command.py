@@ -60,9 +60,21 @@ creater_commands = {
         "send": False,
         "display": False,
     },
+    # "cmd10-2": {  # ユーザに投票(投票先を変更/更新)
+    #     "cmd": {"VOTE": {"USER_ID": 202}},
+    #     "res": "S251",
+    #     "send": False,
+    #     "display": False,
+    # },
     "cmd11": {  # すべてのユーザの投票が完了
         "cmd": {},
         "res": "S252",
+        "send": False,
+        "display": False,
+    },
+    "cmd12": {  # 投票結果
+        "cmd": {},
+        "res": "S261",
         "send": False,
         "display": False,
     },
@@ -76,7 +88,7 @@ joiner_commands_by_user = {
             "cmd": {"VOTE": {"USER_ID": 201}},
             "res": "S251",
             "send": False,
-            "display": False,
+            "display": True,
         },
     },
     "198": {
@@ -84,7 +96,7 @@ joiner_commands_by_user = {
             "cmd": {"VOTE": {"USER_ID": 202}},
             "res": "S251",
             "send": False,
-            "display": False,
+            "display": True,
         },
     },
     "mira": {
@@ -92,21 +104,21 @@ joiner_commands_by_user = {
             "cmd": {"UPDATE": {"ROLE": {"THIEF": 201}}},
             "res": "S244",
             "send": False,
-            "display": False,
+            "display": True,
         },
         "cmd1": {  # 投票
             "cmd": {"VOTE": {"USER_ID": 203}},
             "res": "S251",
             "send": False,
-            "display": False,
+            "display": True,
         },
     },
     "cookie": {
         "cmd1": {  # 投票
-            "cmd": {"VOTE": {"USER_ID": 204}},
+            "cmd": {"VOTE": {"USER_ID": 201}},
             "res": "S251",
             "send": False,
-            "display": False,
+            "display": True,
         },
     },
 }
