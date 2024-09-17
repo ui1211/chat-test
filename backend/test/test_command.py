@@ -88,7 +88,7 @@ joiner_commands_by_user = {
             "cmd": {"VOTE": {"USER_ID": 201}},
             "res": "S251",
             "send": False,
-            "display": False,
+            "display": True,
         },
     },
     "198": {
@@ -96,7 +96,7 @@ joiner_commands_by_user = {
             "cmd": {"VOTE": {"USER_ID": 202}},
             "res": "S251",
             "send": False,
-            "display": False,
+            "display": True,
         },
     },
     "mira": {
@@ -110,7 +110,7 @@ joiner_commands_by_user = {
             "cmd": {"VOTE": {"USER_ID": 203}},
             "res": "S251",
             "send": False,
-            "display": False,
+            "display": True,
         },
     },
     "cookie": {
@@ -118,7 +118,7 @@ joiner_commands_by_user = {
             "cmd": {"VOTE": {"USER_ID": 201}},
             "res": "S251",
             "send": False,
-            "display": False,
+            "display": True,
         },
     },
 }

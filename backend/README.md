@@ -17,6 +17,8 @@ wscat -c "ws://127.0.0.1:8000/ws/create/?USER_NAME=fagi"
 ```bash
 wscat -c "ws://127.0.0.1:8000/ws/join/?ROOM_CODE=99999&USER_NAME=ui"
 wscat -c "ws://127.0.0.1:8000/ws/join/?ROOM_CODE=99999&USER_NAME=198"
+wscat -c "ws://127.0.0.1:8000/ws/join/?ROOM_CODE=99999&USER_NAME=mira"
+wscat -c "ws://127.0.0.1:8000/ws/join/?ROOM_CODE=99999&USER_NAME=cookie"
 ```
 
 # 接続後

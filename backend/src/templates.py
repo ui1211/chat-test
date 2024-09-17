@@ -13,6 +13,7 @@ ROOM_TEMPLATE = {
         "ROOM_USER": {"100": None},
         "ROOM_ROLE": [None, None],
         "VOTED_USER_LIST": [],
+        "CREATED_AT": None,
     },
     "ROLE": {
         "FORTUNE_TELL": None,
@@ -31,9 +32,11 @@ ROOM_TEMPLATE = {
 USER_TEMPLATE = {
     "USER_ID": None,
     "USER_NAME": None,
+    "USER_NUM": None,
     "ROLE_ID": None,
     "ROLE_NAME": None,
     "ROOM_CREATOR": False,
     "VISIBLE_LIST": [],
     "USER_VOTE": None,
+    "JOINED_AT": None,
 }

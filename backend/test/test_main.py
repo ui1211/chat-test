@@ -11,7 +11,7 @@ def current_time():
     return datetime.now().replace(microsecond=0)
 
 
-simple = True  # 出力結果をSTATUSのみ
+simple = False  # 出力結果をSTATUSのみ
 
 
 print(str("=======") * 10)
@@ -22,7 +22,12 @@ users, users_num, send_flag, receive_flag = [], 5, True, True
 
 
 def ppprint(header, response):
-    print(current_time(), header, "\n", json.dumps(json.loads(response), indent=4, ensure_ascii=False), "\n")
+    """JSONデータを整形して表示"""
+    if response:  # 空でないことを確認
+        res = json.dumps(json.loads(response), indent=4, ensure_ascii=False)
+        print(current_time(), header, "\n", res, "\n")
+    else:
+        print(current_time(), header, "\n", "Empty response\n")
 
 
 async def execute_commands(websocket, commands, user_name):
@@ -30,7 +35,7 @@ async def execute_commands(websocket, commands, user_name):
     while True:
         response = await websocket.recv()
         response_json = json.loads(response)
-        response_status = response_json["STATUS"]["STATUS_CODE"]
+        response_status = response_json["STATUS"]["STATUS_DETAIL_CODE"]
 
         # エラーメッセージ
         if response_status in ["S100", "S400"]:
