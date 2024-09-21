@@ -6,6 +6,8 @@ from datetime import datetime
 import websockets
 from test_command import creater_commands, joiner_commands_by_user
 
+creater_commands = {}
+
 
 def current_time():
     return datetime.now().replace(microsecond=0)

@@ -134,5 +134,10 @@ async def error_check():
         join_room(room_code=room_code, user_name="fagi"),  # ユーザ名の重複
     )
 
+    # 　ルーム参加者が切断した場合にユーザ番号を詰める
+    await asyncio.gather(
+        create_room(user_name="fagi"),
+    )
+
 
 asyncio.run(error_check())

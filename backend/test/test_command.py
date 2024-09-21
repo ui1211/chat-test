@@ -114,6 +114,12 @@ joiner_commands_by_user = {
         },
     },
     "cookie": {
+        "cmd2": {  # 退出ボタン
+            "cmd": {"EVENT": "EXIT_BUTTON"},
+            "res": "S236",
+            "send": False,
+            "display": False,
+        },
         "cmd1": {  # 投票
             "cmd": {"VOTE": {"USER_ID": 201}},
             "res": "S251",
