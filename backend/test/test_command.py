@@ -88,7 +88,7 @@ joiner_commands_by_user = {
             "cmd": {"VOTE": {"USER_ID": 201}},
             "res": "S251",
             "send": False,
-            "display": True,
+            "display": False,
         },
     },
     "198": {
@@ -96,7 +96,7 @@ joiner_commands_by_user = {
             "cmd": {"VOTE": {"USER_ID": 202}},
             "res": "S251",
             "send": False,
-            "display": True,
+            "display": False,
         },
     },
     "mira": {
@@ -110,7 +110,7 @@ joiner_commands_by_user = {
             "cmd": {"VOTE": {"USER_ID": 203}},
             "res": "S251",
             "send": False,
-            "display": True,
+            "display": False,
         },
     },
     "cookie": {
@@ -124,7 +124,26 @@ joiner_commands_by_user = {
             "cmd": {"VOTE": {"USER_ID": 201}},
             "res": "S251",
             "send": False,
-            "display": True,
+            "display": False,
         },
+    },
+}
+
+normal_play_scenario_commands = {
+    1: {
+        "user_name": "fagi",
+        "command": "",
+        "request_statsu_code": "",
+        "wait_time": "",
+        "command_sended": "",
+        "response_dipslayed": "",
+    },
+    2: {
+        "user_name": "fagi",
+        "command": "",
+        "request_statsu_code": "",
+        "wait_time": "",
+        "command_sended": "",
+        "response_dipslayed": "",
     },
 }
