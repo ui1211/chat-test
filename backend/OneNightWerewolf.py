@@ -2,12 +2,8 @@ import asyncio
 import json
 import random
 from contextlib import asynccontextmanager
-from datetime import datetime
-from pprint import pprint
 
 from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
-
-##
 from src.constants import (
     ALLOWED_COMMANDS,
     DEBUG,
@@ -18,6 +14,7 @@ from src.constants import (
     roles_dict,
 )
 from src.data_store import rooms
+from src.helpers import current_time, ppprint
 from src.manager import ConnectionManager
 from src.templates import ROOM_TEMPLATE, USER_TEMPLATE
 
@@ -27,19 +24,6 @@ from src.templates import ROOM_TEMPLATE, USER_TEMPLATE
 #     task = asyncio.create_task(monitor_room_connections())  # 起動時にタスクを作成
 #     yield  # アプリケーションが実行される間にこのタスクが動作
 #     task.cancel()  # シャットダウン時にタスクをキャンセル
-
-
-def current_time():
-    return datetime.now().replace(microsecond=0).isoformat()
-
-
-def ppprint(header, response):
-    """JSONデータを整形して表示"""
-    if response:  # 空でないことを確認
-        res = json.dumps(json.loads(response), indent=4, ensure_ascii=False)
-        print(current_time(), header, "\n", res, "\n")
-    else:
-        print(current_time(), header, "\n", "Empty response\n")
 
 
 # app = FastAPI(lifespan=lifespan)
@@ -57,7 +41,7 @@ def initialize_room(ROOM_CODE: str, USER_NAME: str, USER_ID: str):
     # ルーム情報を作成
     room = json.loads(json.dumps(ROOM_TEMPLATE))
     room["ROOM"]["ROOM_CODE"] = ROOM_CODE
-    room["ROOM"]["ROOM_USER"][USER_ID] = USER_NAME  # 不要
+    room["ROOM"]["ROOM_USER"][USER_ID] = {"USER_NUM": 1, "USER_NAME": USER_NAME}
     room["ROOM"]["ROOM_ROLE"].append(None)
     room["ROOM"]["ROOM_STATUS"] = "R002"
     room["ROOM"]["CREATED_AT"] = current_time()
@@ -172,6 +156,8 @@ async def handle_event(websocket: WebSocket, message_data, USER_NAME: str, ROOM_
         await process_start_button(websocket, ROOM_CODE)
     elif event_type == "END_BUTTON":
         await process_end_button(USER_NAME, ROOM_CODE, USER_ID)
+    elif event_type == "EXIT_BUTTON":
+        await process_exit_button(USER_NAME, ROOM_CODE, USER_ID)
     else:
         print(f"Unknown event type: {event_type}")
 
@@ -188,7 +174,7 @@ async def countdown_and_update(ROOM_CODE: int, ROOM_STATUS: str, STATUS_DETAIL_C
 async def process_omakase_button(ROOM_CODE: int):
     """おまかせボタンの処理"""
     users = rooms[ROOM_CODE]["ROOM"]["ROOM_USER"]
-    users_num = len(users) - 1
+    users_num = len(users) - 1  # USER_ID=100が存在するためマイナス-1
 
     if users_num == 3:
         role_list = ["20", "21", "21", "22", "23"]
@@ -266,6 +252,12 @@ async def process_start_button(websocket: WebSocket, ROOM_CODE: int):
 async def process_end_button(USER_NAME: str, ROOM_CODE: int, USER_ID: int):
     """エンドボタンの処理"""
     await handle_disconnect(USER_NAME, ROOM_CODE, USER_ID)
+
+
+async def process_exit_button(USER_NAME: str, ROOM_CODE: int, USER_ID: int):
+    """退出ボタンの処理"""
+    await handle_disconnect(USER_NAME, ROOM_CODE, USER_ID)
+    await reassign_user_numbers(ROOM_CODE)
 
 
 # ==========勝利判定==========
@@ -692,7 +684,10 @@ async def create_room(websocket: WebSocket, USER_NAME: str = Query("")):
 
     if DEBUG:
         ROOM_CODE = debugs["ROOM_CODE"]
-        USER_ID = debugs["USER_ID"][USER_NAME]
+        if str(USER_NAME) in debugs["USER_ID"].keys():
+            USER_ID = debugs["USER_ID"][USER_NAME]
+        else:
+            USER_ID = str(random.randint(200, 999))
     else:
         ROOM_CODE = str(random.randint(10000, 99999))
         USER_ID = str(random.randint(200, 999))
@@ -728,7 +723,8 @@ async def join_room(websocket: WebSocket, ROOM_CODE: str = Query("0"), USER_NAME
         await send_error_message(websocket, "S100", "M004")
         return
 
-    if USER_NAME in rooms[ROOM_CODE]["ROOM"]["ROOM_USER"].values():  # ユーザ名が存在する場合エラーを返す
+    if USER_NAME in [user_data["USER_NAME"] for user_data in rooms[ROOM_CODE]["ROOM"]["ROOM_USER"].values()]:
+        # ユーザ名がすでに存在する場合
         print(current_time(), "join (but exists user name)", USER_NAME)
         await send_error_message(websocket, "S100", "M011")
         return
@@ -744,13 +740,16 @@ async def join_room(websocket: WebSocket, ROOM_CODE: str = Query("0"), USER_NAME
                 USER_ID = new_user_id
                 break
 
-    rooms[ROOM_CODE]["ROOM"]["ROOM_USER"][USER_ID] = USER_NAME
+    # rooms[ROOM_CODE]["ROOM"]["ROOM_USER"][USER_ID] = USER_NAME
+    # ユーザ情報を格納
+    user_num = len(rooms[ROOM_CODE]["ROOM"]["ROOM_USER"])
+    rooms[ROOM_CODE]["ROOM"]["ROOM_USER"][USER_ID] = {"USER_NUM": user_num, "USER_NAME": USER_NAME}
     rooms[ROOM_CODE]["ROOM"]["ROOM_ROLE"].append(None)
     #
     user = json.loads(json.dumps(USER_TEMPLATE))
     user["USER_ID"] = USER_ID
     user["USER_NAME"] = USER_NAME
-    user["USER_NUM"] = len(rooms[ROOM_CODE]["ROOM"]["ROOM_USER"]) - 1  # 現在のユーザーの数
+    user["USER_NUM"] = user_num
     user["JOINED_AT"] = current_time()
 
     rooms[ROOM_CODE]["USERS"][USER_ID] = user
