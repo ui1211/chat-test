@@ -2,6 +2,7 @@
 
 ```bash
 uvicorn OneNightWerewolf:app --reload
+uvicorn main:app --reload
 ```
 
 ```

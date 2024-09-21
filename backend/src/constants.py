@@ -1,7 +1,7 @@
 DEBUG = True
 
-countdown_role_confirmation = 0  # 役職確認画面待機秒数
-countdown_role_execution = 0  # 役職実行画面待機秒数
+countdown_role_confirmation = 3  # 役職確認画面待機秒数
+countdown_role_execution = 3  # 役職実行画面待機秒数
 
 
 messages = {

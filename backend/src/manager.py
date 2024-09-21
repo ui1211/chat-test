@@ -3,11 +3,11 @@ import asyncio
 import json
 from unittest.mock import AsyncMock
 
-from constants import messages
-from data_store import rooms
 from fastapi import WebSocket
-from helpers import current_time, ppprint
-from templates import ROOM_TEMPLATE, USER_TEMPLATE
+from src.constants import messages
+from src.data_store import rooms
+from src.helpers import current_time, ppprint
+from src.templates import ROOM_TEMPLATE, USER_TEMPLATE
 
 
 class ConnectionManager:
@@ -28,7 +28,7 @@ class ConnectionManager:
         self.active_connections[ROOM_CODE].append((USER_NAME, USER_ID, websocket, role))
         await websocket.accept()
 
-    def disconnect(self, ROOM_CODE: str, USER_ID: str):
+    async def disconnect(self, ROOM_CODE: str, USER_ID: str):
         """ユーザーを切断し、接続リストから削除"""
         if ROOM_CODE in self.active_connections:
             self.active_connections[ROOM_CODE] = [
@@ -63,27 +63,28 @@ class ConnectionManager:
         room["ROOM"]["CREATED_AT"] = current_time()
 
         # ユーザ情報を作成
-        user = json.loads(json.dumps(USER_TEMPLATE))
-        user["USER_ID"] = USER_ID
-        user["USER_NAME"] = USER_NAME
-        user["USER_NUM"] = 1
-        user["ROOM_CREATOR"] = True
-        user["JOINED_AT"] = current_time()
+        user = self.initialize_user(USER_NAME, USER_ID, 1, True)
         room["USERS"][USER_ID] = user
         room["USER"] = user
 
         # roomsにルームコードを登録
         rooms[ROOM_CODE] = room
 
-    async def send_room_update(
-        self,
-        ROOM_CODE: int,
-        STATUS_DETAIL_CODE: str = "S200",
-        MESSAGE_CODE: str = "M000",
-    ):
+    def initialize_user(self, USER_NAME: str, USER_ID: str, USER_NUM: int, ROOM_CREATOR: bool = False):
+        """ユーザ情報の初期化"""
+        user = json.loads(json.dumps(USER_TEMPLATE))
+        user["USER_ID"] = USER_ID
+        user["USER_NAME"] = USER_NAME
+        user["USER_NUM"] = USER_NUM
+        user["ROOM_CREATOR"] = ROOM_CREATOR
+        user["JOINED_AT"] = current_time()
+        return user
+
+    async def send_room_update(self, ROOM_CODE: int, STATUS_DETAIL_CODE: str = "S200", MESSAGE_CODE: str = "M000"):
         """ルームの更新情報を全クライアントに送信"""
 
         print(current_time(), "send_room_update", ROOM_CODE, STATUS_DETAIL_CODE)
+        # print(self.active_connections)
         if ROOM_CODE in self.active_connections:
             for USER_NAME, USER_ID, connection, _ in self.active_connections[ROOM_CODE]:
                 data = rooms[ROOM_CODE]
@@ -188,5 +189,5 @@ async def _test():
     ppprint("メッセージ送信成功:", mock_websocket.send_text.call_args[0][0])
 
 
-if __name__ == "__main__":
-    await _test()  # type: ignore
+# if __name__ == "__main__":
+#     await _test()  # type: ignore

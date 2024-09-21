@@ -10,12 +10,7 @@ ROOM_TEMPLATE = {
         "ROOM_NAME": "ワンナイト人狼",
         "ROOM_DISCUSSION_TIME": "180",
         "ROOM_STATUS": "R001",
-        "ROOM_USER": {
-            "100": {
-                "USER_NUM": 0,
-                "USER_NAME": None,
-            }
-        },
+        "ROOM_USER": {},
         "ROOM_ROLE": [None, None],
         "VOTED_USER_LIST": [],
         "CREATED_AT": None,
