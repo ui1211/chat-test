@@ -62,11 +62,17 @@ class ConnectionManager:
         # ルーム情報を作成
         room = json.loads(json.dumps(ROOM_TEMPLATE))
         room["ROOM"]["ROOM_CODE"] = ROOM_CODE
+        room["ROOM"]["ROOM_USER"]["100"] = {"USER_NUM": 0, "USER_NAME": None}  # 墓場ユーザ
         room["ROOM"]["ROOM_USER"][USER_ID] = {"USER_NUM": 1, "USER_NAME": USER_NAME}
         room["ROOM"]["ROOM_ROLE"].append(None)
         room["ROOM"]["ROOM_STATUS"] = "R002"
         room["ROOM"]["ROOM_DATETIMES"]["START_R001_AT"] = current_time()
         room["ROOM"]["ROOM_DATETIMES"]["CREATED_AT"] = current_time()
+        room["ROOM"]["VOTED_USER_LIST"] = ["100"]  # 投票済みユーザとして登録
+
+        # 墓場ユーザを追加
+        user = self.initialize_user(None, "100", 0, False)
+        room["USERS"]["100"] = user
 
         # ユーザ情報を作成
         user = self.initialize_user(USER_NAME, USER_ID, 1, True)

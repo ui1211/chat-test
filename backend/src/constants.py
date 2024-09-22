@@ -1,4 +1,4 @@
-DEBUG = True
+DEBUG = False
 
 countdown_role_confirmation = 2  # 役職確認画面待機秒数
 countdown_role_execution = 2  # 役職実行画面待機秒数

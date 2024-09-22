@@ -165,7 +165,7 @@ class RoomManager:
         """USER_NUMを再度割り当てる（JOINED_ATでソートし詰めて付与）"""
         sorted_users = sorted(rooms[room_code]["USERS"].items(), key=lambda item: item[1]["JOINED_AT"])
         for index, (user_id, user_data) in enumerate(sorted_users):
-            rooms[room_code]["USERS"][user_id]["USER_NUM"] = index + 1
+            rooms[room_code]["USERS"][user_id]["USER_NUM"] = index
 
         room_user = {}
         for user_id, user_data in rooms[room_code]["USERS"].items():
@@ -240,7 +240,7 @@ class RoomManager:
             # available_ids = set(map(str, range(200, 1000)))
             # user_id = random.choice(list(available_ids - room_users))
 
-        user_num = len(rooms[room_code]["ROOM"]["ROOM_USER"]) + 1
+        user_num = len(rooms[room_code]["ROOM"]["ROOM_USER"])
         rooms[room_code]["ROOM"]["ROOM_USER"][user_id] = {
             "USER_NUM": user_num,
             "USER_NAME": user_name,

@@ -79,7 +79,7 @@ async def process_commands(commands):
 # asyncio.run(process_commands(disconnect_joiner_scenario))
 # asyncio.run(process_commands(disconnect_creater_scenario))
 # asyncio.run(process_commands(revote_test_scenario))
-# asyncio.run(process_commands(normal_play_scenario))
+asyncio.run(process_commands(normal_play_scenario))
 # asyncio.run(process_commands(win_werewolf_scenario))
 
-asyncio.run(process_commands(win_villager_scenario))
+# asyncio.run(process_commands(win_villager_scenario))
