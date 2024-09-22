@@ -28,24 +28,29 @@ class ConnectionManager:
         self.active_connections[ROOM_CODE].append((USER_NAME, USER_ID, websocket, role))
         await websocket.accept()
 
-    async def disconnect(self, ROOM_CODE: str, USER_ID: str):
+    async def disconnect(self, ROOM_CODE: str, USER_ID: str, USER_NAME: str):
         """ユーザーを切断し、接続リストから削除"""
+        print(current_time(), f"切断: room_code={ROOM_CODE} user_id={USER_ID} user_name={USER_NAME}")
+        USER_ID = str(USER_ID)
         if ROOM_CODE in self.active_connections:
+            # print(self.active_connections[ROOM_CODE])
             self.active_connections[ROOM_CODE] = [
                 (uname, uid, ws, role) for uname, uid, ws, role in self.active_connections[ROOM_CODE] if uid != USER_ID
             ]
+            # print(self.active_connections[ROOM_CODE])
             if not self.active_connections[ROOM_CODE]:
                 del self.active_connections[ROOM_CODE]
 
-    async def broadcast(self, message: str, ROOM_CODE: str, sender_name: str = None):
-        """メッセージを同じルーム内の全てのクライアントにブロードキャスト"""
-        for USER_NAME, USER_ID, connection, role in self.active_connections.get(ROOM_CODE, []):
-            if USER_NAME != sender_name:
-                await connection.send_text(message)
+    # async def broadcast(self, message: str, ROOM_CODE: str, sender_name: str = None):
+    #     """メッセージを同じルーム内の全てのクライアントにブロードキャスト"""
+    #     for USER_NAME, USER_ID, connection, role in self.active_connections.get(ROOM_CODE, []):
+    #         if USER_NAME != sender_name:
+    #             await connection.send_text(message)
 
     async def close_connections(self, ROOM_CODE: str):
         """全てのクライアントを切断"""
         for USER_NAME, USER_ID, connection, role in self.active_connections.get(ROOM_CODE, []):
+            # await self.send_error_message(websocket, "S201", "S000", "M000")
             await connection.send_text(json.dumps({"STATUS": {"STATUS_CODE": "S201"}}))
             await connection.close()
         del self.active_connections[ROOM_CODE]
@@ -60,7 +65,8 @@ class ConnectionManager:
         room["ROOM"]["ROOM_USER"][USER_ID] = {"USER_NUM": 1, "USER_NAME": USER_NAME}
         room["ROOM"]["ROOM_ROLE"].append(None)
         room["ROOM"]["ROOM_STATUS"] = "R002"
-        room["ROOM"]["CREATED_AT"] = current_time()
+        room["ROOM"]["ROOM_DATETIMES"]["START_R001_AT"] = current_time()
+        room["ROOM"]["ROOM_DATETIMES"]["CREATED_AT"] = current_time()
 
         # ユーザ情報を作成
         user = self.initialize_user(USER_NAME, USER_ID, 1, True)
@@ -83,13 +89,17 @@ class ConnectionManager:
     async def send_room_update(self, ROOM_CODE: int, STATUS_DETAIL_CODE: str = "S200", MESSAGE_CODE: str = "M000"):
         """ルームの更新情報を全クライアントに送信"""
 
-        print(current_time(), "send_room_update", ROOM_CODE, STATUS_DETAIL_CODE)
         # print(self.active_connections)
         if ROOM_CODE in self.active_connections:
+            print(current_time(), f"部屋情報を送信: room_code={ROOM_CODE} code={STATUS_DETAIL_CODE}")
             for USER_NAME, USER_ID, connection, _ in self.active_connections[ROOM_CODE]:
+
                 data = rooms[ROOM_CODE]
                 USER_ID = str(USER_ID)
                 ROOM_STATUS = data["ROOM"]["ROOM_STATUS"]
+
+                # 画面遷移の開始時間を記録
+                data["ROOM"]["ROOM_DATETIMES"][f"START_{ROOM_STATUS}_AT"] = current_time()
 
                 if ROOM_STATUS == "R004":  # 役職実行画面に各役職にメッセージ送信
                     role_id = rooms[ROOM_CODE]["USERS"][USER_ID].get("ROLE_ID")
@@ -103,6 +113,7 @@ class ConnectionManager:
                             "STATUS_DETAIL_CODE": STATUS_DETAIL_CODE,
                             "MESSAGE_CODE": MESSAGE_CODE,
                             "MESSAGE_TEXT": messages.get(MESSAGE_CODE, "未知のメッセージコードです"),
+                            "DATETIME": current_time(),
                         },
                         "USER": rooms[ROOM_CODE]["USERS"][USER_ID],
                     }
@@ -146,6 +157,7 @@ class ConnectionManager:
                         "STATUS_DETAIL_CODE": status_detail_code,
                         "MESSAGE_CODE": message_code,
                         "MESSAGE_TEXT": messages.get(message_code, "未定義のメッセージです"),
+                        "DATETIME": current_time(),
                     }
                 },
                 ensure_ascii=False,
@@ -154,40 +166,3 @@ class ConnectionManager:
 
         if not is_connected:
             await websocket.close()
-
-
-async def _test():
-    # ConnectionManager インスタンスを作成
-    manager = ConnectionManager()
-
-    # テスト用データ
-    ROOM_CODE = "99999"
-    USER_NAME = "fagi"
-    USER_ID = "999"
-
-    # モックされたWebSocketの作成
-    mock_websocket = AsyncMock()
-
-    # 接続情報をモックに追加
-    manager.active_connections[ROOM_CODE] = [(USER_NAME, USER_ID, mock_websocket, "role")]
-
-    # ルームの初期化
-    manager.initialize_room(ROOM_CODE=ROOM_CODE, USER_NAME=USER_NAME, USER_ID=USER_ID)
-    ppprint("initialize_room", json.dumps(rooms))
-
-    # send_room_updateのテスト
-    await manager.send_room_update("99999", "S201", "M011")
-    # モックされたWebSocketにメッセージが送られたことを確認
-    mock_websocket.send_text.assert_called_once()  # 1回だけ呼び出されたか確認
-    ppprint("メッセージ送信成功:", mock_websocket.send_text.call_args[0][0])
-
-    # send_error_messageのテスト
-    await manager.send_error_message(mock_websocket, "S100", "S201", "M011", True)
-    ppprint("メッセージ送信成功:", mock_websocket.send_text.call_args[0][0])
-
-    await manager.send_error_message(mock_websocket, "S100", "S202", "M002", False)
-    ppprint("メッセージ送信成功:", mock_websocket.send_text.call_args[0][0])
-
-
-# if __name__ == "__main__":
-#     await _test()  # type: ignore

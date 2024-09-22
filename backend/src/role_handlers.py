@@ -22,7 +22,7 @@ class roleActionClass:
 
     ## 占い師
     async def execute_fortune_teller(self, ROOM_CODE: int, USER_ID: int, target_user_id: int):
-        print(current_time(), "execute_fortune_teller", ROOM_CODE, USER_ID, target_user_id)
+        print(current_time(), "占い師処理", ROOM_CODE, USER_ID, target_user_id)
         room = rooms[ROOM_CODE]
         target_user_id = str(target_user_id)
         # print(room["ROLE"]["ROLE_LIST"])
@@ -41,7 +41,7 @@ class roleActionClass:
 
     ## 怪盗
     async def execute_thief(self, ROOM_CODE: int, USER_ID: int, target_user_id: int):
-        print(current_time(), "execute_thief", ROOM_CODE, USER_ID, target_user_id)
+        print(current_time(), "怪盗処理", ROOM_CODE, USER_ID, target_user_id)
         room = rooms[ROOM_CODE]
         USER_ID = str(USER_ID)  # USER_IDを文字列に変換
         target_user_id = str(target_user_id)  # target_user_idを文字列に変換
@@ -76,10 +76,31 @@ class roleActionClass:
         all_finished = all(user_data.get("ROLE_FIN", False) for user_data in room_roles.values())
 
         if all_finished:
-            print(current_time(), "All users have finished their roles.")
+            print(current_time(), f"全員の役職行動が完了 room_code={ROOM_CODE}")
             rooms[ROOM_CODE]["ROOM"]["ROOM_STATUS"] = "R005"
-            await self.manager.send_room_update(
-                ROOM_CODE, STATUS_DETAIL_CODE="S234"
-            )  # 全員完了後のステータスコードを設定
+            # 全員完了後のステータスコードを設定
+            await self.manager.send_room_update(ROOM_CODE, STATUS_DETAIL_CODE="S234")
         else:
             print("Some users are still not finished with their roles.")
+
+    async def auto_process_role_action(self, ROOM_CODE: int):
+        """占い師や怪盗がアクションを実行していない場合、自動的に処理する"""
+        room_roles = rooms[ROOM_CODE]["ROLE"]["ROLE_LIST"]
+        user_ids = list(room_roles.keys())
+
+        for user_id, role_data in room_roles.items():
+            # print(current_time(), "auto_process_role_action", user_id, role_data, role_data.get("ROLE_FIN"))
+            role_id = role_data["USER_ROLE1"]
+            # print(role_id)
+
+            if role_id == "22" and not role_data.get("ROLE_FIN"):  # 占い師がまだアクションを実行していない場合
+                print(current_time(), f"auto_process_role_action: role_id={role_id} user_id={user_id}")
+                target_user_id = random.choice([uid for uid in user_ids if uid != user_id])  # 自分以外の対象を選択
+                await self.execute_fortune_teller(ROOM_CODE, user_id, target_user_id)
+
+            elif role_id == "23" and not role_data.get("ROLE_FIN"):  # 怪盗がまだアクションを実行していない場合
+                print(current_time(), f"auto_process_role_action: role_id={role_id} user_id={user_id}")
+                target_user_id = random.choice([uid for uid in user_ids if uid != user_id and uid != "100"])
+                await self.execute_thief(ROOM_CODE, user_id, target_user_id)
+
+        await self.check_and_update_if_all_roles_finished(ROOM_CODE)

@@ -13,7 +13,16 @@ ROOM_TEMPLATE = {
         "ROOM_USER": {},
         "ROOM_ROLE": [None, None],
         "VOTED_USER_LIST": [],
-        "CREATED_AT": None,
+        "ROOM_DATETIMES": {
+            "CREATED_AT": None,
+            "START_R001_AT": None,
+            "START_R002_AT": None,
+            "START_R003_AT": None,
+            "START_R004_AT": None,
+            "START_R005_AT": None,
+            "START_R006_AT": None,
+            "START_R007_AT": None,
+        },
     },
     "ROLE": {
         "FORTUNE_TELL": None,
@@ -23,6 +32,7 @@ ROOM_TEMPLATE = {
     "RESULT": {
         "RESULT_TEXT": "",
         "VOTE_RESULT": {},
+        "VICTORY_USER_ID": [],
     },
     "USERS": {},  # 参加している全ユーザの情報
     "USER": {},  # フロントのユーザ情報(接続中のユーザー)

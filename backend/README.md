@@ -1,7 +1,7 @@
 # 接続
 
 ```bash
-uvicorn OneNightWerewolf:app --reload
+#uvicorn OneNightWerewolf:app --reload
 uvicorn main:app --reload
 ```
 

@@ -1,7 +1,7 @@
 DEBUG = True
 
-countdown_role_confirmation = 3  # 役職確認画面待機秒数
-countdown_role_execution = 3  # 役職実行画面待機秒数
+countdown_role_confirmation = 2  # 役職確認画面待機秒数
+countdown_role_execution = 2  # 役職実行画面待機秒数
 
 
 messages = {
@@ -10,10 +10,14 @@ messages = {
     "M002": "プレイヤー名、ルームコードの両方を入力してください",
     "M004": "ルームコードが誤っています",
     "M005": "役職の数とプレイ人数を統一してください",
+    "M008": "(プレイヤー名)がゲームから退出しました",
     "M011": "プレイヤー名が重複しています",
     "M101": "開始までお待ちください",
     "M102": "占い先を指定してください",
     "M103": "怪盗先を指定してください",
+    "M201": "村人陣営の勝利",
+    "M202": "人狼陣営の勝利",
+    "M203": "平和村",
 }
 
 
@@ -27,7 +31,16 @@ roles_dict = {
 }
 
 #
-ALLOWED_COMMANDS = {
+# ALLOWED_COMMANDS = {
+#     "ROOM": "S210",
+#     "ROOM_DISCUSSION_TIME": "S211",
+#     "ROOM_ROLE": "S212",
+#     "ROLE": "240",
+#     "FORTUNE_TELL": "S241",
+#     "THIEF": "S242",
+# }
+
+allowed_commands = {
     "ROOM": "S210",
     "ROOM_DISCUSSION_TIME": "S211",
     "ROOM_ROLE": "S212",
